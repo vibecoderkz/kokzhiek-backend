@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kokzhiek Editor API Documentation</title>
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.0.1/swagger-ui.css" />
+    <style>
+        html {
+            box-sizing: border-box;
+            overflow: -moz-scrollbars-vertical;
+            overflow-y: scroll;
+        }
+        *, *:before, *:after {
+            box-sizing: inherit;
+        }
+        body {
+            margin: 0;
+            background: #fafafa;
+            font-family: 'Roboto', sans-serif;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem 0;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            font-weight: 300;
+        }
+        .header p {
+            margin: 0.5rem 0 0 0;
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+        .info-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-left: 4px solid #667eea;
+        }
+        .card h3 {
+            margin-top: 0;
+            color: #333;
+            font-size: 1.3rem;
+        }
+        .card p {
+            color: #666;
+            line-height: 1.6;
+        }
+        .endpoint-list {
+            list-style: none;
+            padding: 0;
+        }
+        .endpoint-list li {
+            background: #f8f9fa;
+            margin: 0.5rem 0;
+            padding: 0.75rem 1rem;
+            border-radius: 4px;
+            border-left: 3px solid #28a745;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+        .method {
+            font-weight: bold;
+            color: #007bff;
+            margin-right: 1rem;
+        }
+        .swagger-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        #swagger-ui {
+            font-family: 'Roboto', sans-serif;
+        }
+        .swagger-ui .topbar {
+            display: none;
+        }
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            .container {
+                padding: 0 1rem;
+            }
+            .info-cards {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1>🚀 Kokzhiek Editor API</h1>
+            <p>Complete Authentication & Content Management System</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="info-cards">
+            <div class="card">
+                <h3>🔐 Authentication System</h3>
+                <p>Complete role-based authentication with JWT tokens, email verification, and password reset functionality.</p>
+                <ul class="endpoint-list">
+                    <li><span class="method">POST</span>/api/auth/register</li>
+                    <li><span class="method">POST</span>/api/auth/login</li>
+                    <li><span class="method">POST</span>/api/auth/reset-password</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3>🔑 Registration Keys</h3>
+                <p>Admin-controlled registration system using unique keys for different user roles and access levels.</p>
+                <ul class="endpoint-list">
+                    <li><span class="method">POST</span>/api/auth/validate-key</li>
+                    <li><span class="method">POST</span>/api/auth/verify-email</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3>🏥 System Health</h3>
+                <p>Monitor API health and service status with real-time endpoint monitoring and diagnostics.</p>
+                <ul class="endpoint-list">
+                    <li><span class="method">GET</span>/health</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="swagger-container">
+            <div id="swagger-ui"></div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/swagger-ui-dist@5.0.1/swagger-ui-bundle.js"></script>
+    <script src="https://unpkg.com/swagger-ui-dist@5.0.1/swagger-ui-standalone-preset.js"></script>
+    <script>
+        window.onload = function() {
+            // Get API URL from current location
+            const apiUrl = window.location.origin.includes('localhost')
+                ? 'http://localhost:3000/api-docs.json'
+                : `${window.location.origin}/api-docs.json`;
+
+            // Initialize Swagger UI
+            const ui = SwaggerUIBundle({
+                url: apiUrl,
+                dom_id: '#swagger-ui',
+                deepLinking: true,
+                presets: [
+                    SwaggerUIBundle.presets.apis,
+                    SwaggerUIStandalonePreset
+                ],
+                plugins: [
+                    SwaggerUIBundle.plugins.DownloadUrl
+                ],
+                layout: "StandaloneLayout",
+                defaultModelsExpandDepth: 1,
+                defaultModelExpandDepth: 1,
+                docExpansion: "list",
+                filter: true,
+                showExtensions: true,
+                showCommonExtensions: true,
+                tryItOutEnabled: true,
+                requestInterceptor: (request) => {
+                    // Add CORS headers for testing
+                    request.headers['Accept'] = 'application/json';
+                    request.headers['Content-Type'] = 'application/json';
+                    return request;
+                },
+                onComplete: () => {
+                    console.log('🎉 Swagger UI loaded successfully!');
+                    console.log('📚 API Documentation ready for testing');
+                },
+                onFailure: (error) => {
+                    console.error('❌ Failed to load API documentation:', error);
+                }
+            });
+
+            // Add custom styling after load
+            setTimeout(() => {
+                const style = document.createElement('style');
+                style.textContent = `
+                    .swagger-ui .info .title {
+                        color: #667eea !important;
+                        font-size: 2rem !important;
+                    }
+                    .swagger-ui .info .description {
+                        font-size: 1.1rem !important;
+                        color: #666 !important;
+                    }
+                    .swagger-ui .opblock .opblock-summary-method {
+                        font-weight: bold !important;
+                    }
+                    .swagger-ui .btn.authorize {
+                        background: #667eea !important;
+                        border-color: #667eea !important;
+                    }
+                    .swagger-ui .btn.execute {
+                        background: #28a745 !important;
+                        border-color: #28a745 !important;
+                    }
+                `;
+                document.head.appendChild(style);
+            }, 1000);
+        };
+    </script>
+</body>
+</html>
