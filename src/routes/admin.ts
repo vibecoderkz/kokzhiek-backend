@@ -123,7 +123,7 @@ router.post('/registration-keys',
   async (req, res): Promise<void> => {
     try {
       const { role, description, maxUses, expiresAt } = req.body;
-      const userId = (req as any).user.id;
+      const userId = (req as any).user.userId;
 
       const keyInfo = await RegistrationKeyService.createRegistrationKey({
         role: role as UserRole,
@@ -243,7 +243,7 @@ router.post('/registration-keys/bulk',
   async (req, res): Promise<void> => {
     try {
       const { role, count, description, maxUses, expiresAt, keyPrefix } = req.body;
-      const userId = (req as any).user.id;
+      const userId = (req as any).user.userId;
 
       const keys = await RegistrationKeyService.createBulkRegistrationKeys({
         role: role as UserRole,

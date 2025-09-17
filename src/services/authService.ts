@@ -114,6 +114,7 @@ export class AuthService {
       userId: user.id,
       email: user.email,
       role: user.role as UserRole,
+      schoolId: user.schoolId || undefined,
     });
 
     return {

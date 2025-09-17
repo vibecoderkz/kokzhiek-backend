@@ -7,6 +7,7 @@ export interface JWTPayload {
   userId: string;
   email: string;
   role: UserRole;
+  schoolId?: string;
   iat: number;
   exp: number;
 }

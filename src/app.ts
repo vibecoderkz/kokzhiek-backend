@@ -7,6 +7,10 @@ import dotenv from 'dotenv';
 import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
 import adminRoutes from './routes/admin';
+import bookRoutes from './routes/books';
+import chapterRoutes from './routes/chapters';
+import blockRoutes from './routes/blocks';
+import publicRoutes from './routes/public';
 import { errorHandler } from './middleware/errorHandler';
 import { setupSwagger } from './config/swagger';
 
@@ -68,6 +72,10 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/books', bookRoutes);
+app.use('/api/chapters', chapterRoutes);
+app.use('/api/blocks', blockRoutes);
+app.use('/api/public', publicRoutes);
 
 app.use('*', (req, res) => {
   res.status(404).json({
