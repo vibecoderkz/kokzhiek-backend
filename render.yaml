@@ -3,8 +3,8 @@ services:
     name: kokzhiek-editor-backend
     env: node
     plan: free
-    buildCommand: yarn install && yarn build
-    startCommand: yarn start
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
