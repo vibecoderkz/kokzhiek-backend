@@ -256,8 +256,7 @@ const specs = swaggerJsdoc(options);
 
 export function setupSwagger(app: Express): void {
   // Swagger UI
-  app.use('/api-docs', swaggerUi.serve);
-  app.use('/api-docs', swaggerUi.setup(specs, {
+  app.use('/api-docs', ...swaggerUi.serve, swaggerUi.setup(specs, {
     explorer: true,
     customCss: '.swagger-ui .topbar { display: none }',
     customSiteTitle: 'Kokzhiek Editor API Documentation',
