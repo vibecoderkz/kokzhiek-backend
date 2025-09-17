@@ -23,7 +23,15 @@
       "Bash(git push:*)",
       "Bash(yarn build)",
       "Bash(dir dist)",
-      "WebFetch(domain:render.com)"
+      "WebFetch(domain:render.com)",
+      "mcp__render__list_services",
+      "mcp__render__list_workspaces",
+      "mcp__render__list_deploys",
+      "mcp__render__list_logs",
+      "mcp__render__update_web_service",
+      "mcp__render__get_service",
+      "mcp__render__get_deploy",
+      "Bash(npm start)"
     ],
     "deny": [],
     "ask": []

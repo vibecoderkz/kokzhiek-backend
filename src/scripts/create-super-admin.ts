@@ -9,15 +9,15 @@ async function createSuperAdmin() {
   try {
     console.log('Creating super admin user...');
 
-    const adminEmail = 'admin@kokzhiek.com';
-    const adminPassword = 'AdminPass123!';
+    const adminEmail = 'balinteegor@gmail.com';
+    const adminPassword = 'Tomiris2004!';
     const hashedPassword = await hashPassword(adminPassword);
 
     const [adminUser] = await db.insert(users).values({
       email: adminEmail,
       passwordHash: hashedPassword,
-      firstName: 'Super',
-      lastName: 'Admin',
+      firstName: 'Balint',
+      lastName: 'Eegor',
       role: 'admin',
       emailVerified: true,
     }).returning();
