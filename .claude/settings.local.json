@@ -22,7 +22,8 @@
       "Bash(git branch:*)",
       "Bash(git push:*)",
       "Bash(yarn build)",
-      "Bash(dir dist)"
+      "Bash(dir dist)",
+      "WebFetch(domain:render.com)"
     ],
     "deny": [],
     "ask": []
