@@ -3,8 +3,8 @@ services:
     name: kokzhiek-editor-backend
     env: node
     plan: free
-    buildCommand: npm install && npm run build
-    startCommand: npm start
+    buildCommand: yarn install && yarn build
+    startCommand: yarn start
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
@@ -34,7 +34,7 @@ services:
       - key: FRONTEND_URL
         sync: false
       - key: ALLOWED_ORIGINS
-        sync: false
+        value: "http://localhost:3000,http://localhost:5173,https://localhost:3000,https://localhost:5173,https://kokzhiek.icai.kz,https://kokzhiek-new.vercel.app"
       - key: RATE_LIMIT_WINDOW_MS
         value: 900000
       - key: RATE_LIMIT_MAX_REQUESTS
