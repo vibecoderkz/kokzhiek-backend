@@ -185,6 +185,26 @@ export class RegistrationKeyService {
     return keys;
   }
 
+  static async deleteRegistrationKey(keyCode: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const key = await db.query.registrationKeys.findFirst({
+        where: eq(registrationKeys.keyCode, keyCode),
+      });
+
+      if (!key) {
+        return { success: false, error: 'Registration key not found' };
+      }
+
+      await db.delete(registrationKeys)
+        .where(eq(registrationKeys.keyCode, keyCode));
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting registration key:', error);
+      return { success: false, error: 'Failed to delete registration key' };
+    }
+  }
+
   private static formatKeyInfo(key: any): RegistrationKeyInfo {
     const now = new Date();
     let status: 'active' | 'expired' | 'exhausted' | 'inactive' = 'active';

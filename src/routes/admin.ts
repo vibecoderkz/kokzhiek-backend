@@ -524,4 +524,92 @@ router.get('/registration-keys/:keyCode',
   }
 );
 
+/**
+ * @swagger
+ * /api/admin/registration-keys/{keyCode}:
+ *   delete:
+ *     summary: Delete a registration key
+ *     tags: [Admin - Registration Keys]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: keyCode
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The registration key code to delete
+ *     responses:
+ *       200:
+ *         description: Registration key deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Registration key deleted successfully
+ *       404:
+ *         description: Registration key not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       403:
+ *         description: Forbidden - Admin access required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.delete('/registration-keys/:keyCode',
+  authenticateToken,
+  requireRole(['admin']),
+  async (req, res): Promise<void> => {
+    try {
+      const { keyCode } = req.params;
+
+      const result = await RegistrationKeyService.deleteRegistrationKey(keyCode);
+
+      if (!result.success) {
+        const statusCode = result.error === 'Registration key not found' ? 404 : 500;
+        const errorCode = result.error === 'Registration key not found' ? 'KEY_NOT_FOUND' : 'INTERNAL_ERROR';
+
+        res.status(statusCode).json({
+          success: false,
+          error: {
+            code: errorCode,
+            message: result.error,
+          }
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        message: 'Registration key deleted successfully',
+      });
+    } catch (error) {
+      console.error('Error deleting registration key:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to delete registration key',
+        }
+      });
+    }
+  }
+);
+
 export default router;
