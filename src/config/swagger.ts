@@ -20,7 +20,7 @@ const options = {
         description: 'Development server',
       },
       {
-        url: 'https://api.kokzhiek.com',
+        url: 'https://kokzhiek-backend.onrender.com',
         description: 'Production server',
       },
     ],
