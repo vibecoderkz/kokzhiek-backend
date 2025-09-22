@@ -115,100 +115,6 @@ const CreateBulkKeysSchema = z.object({
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
- *   get:
- *     summary: Get all registration keys with optional filtering
- *     tags: [Admin - Registration Keys]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: number
- *           minimum: 1
- *           default: 1
- *         description: Page number for pagination
- *       - in: query
- *         name: limit
- *         schema:
- *           type: number
- *           minimum: 1
- *           maximum: 100
- *           default: 20
- *         description: Number of keys per page
- *       - in: query
- *         name: status
- *         schema:
- *           type: string
- *           enum: [active, expired, exhausted, inactive]
- *         description: Filter by key status
- *     responses:
- *       200:
- *         description: Registration keys retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: Registration keys retrieved successfully
- *                 data:
- *                   type: object
- *                   properties:
- *                     keys:
- *                       type: array
- *                       items:
- *                         type: object
- *                         properties:
- *                           id:
- *                             type: string
- *                           keyCode:
- *                             type: string
- *                           role:
- *                             type: string
- *                           description:
- *                             type: string
- *                             nullable: true
- *                           maxUses:
- *                             type: number
- *                             nullable: true
- *                           currentUses:
- *                             type: number
- *                             nullable: true
- *                           usesRemaining:
- *                             type: number
- *                           expiresAt:
- *                             type: string
- *                             format: date-time
- *                             nullable: true
- *                           status:
- *                             type: string
- *                             enum: [active, expired, exhausted, inactive]
- *                     total:
- *                       type: number
- *                       description: Total number of keys
- *                     page:
- *                       type: number
- *                       description: Current page number
- *                     limit:
- *                       type: number
- *                       description: Number of keys per page
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *       403:
- *         description: Forbidden - Admin access required
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post('/registration-keys',
   authenticateToken,
@@ -367,6 +273,104 @@ router.post('/registration-keys/bulk',
   }
 );
 
+/**
+ * @swagger
+ * /api/admin/registration-keys:
+ *   get:
+ *     summary: Get all registration keys with optional filtering
+ *     tags: [Admin - Registration Keys]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: number
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: number
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Number of keys per page
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [active, expired, exhausted, inactive]
+ *         description: Filter by key status
+ *     responses:
+ *       200:
+ *         description: Registration keys retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Registration keys retrieved successfully
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     keys:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                           keyCode:
+ *                             type: string
+ *                           role:
+ *                             type: string
+ *                           description:
+ *                             type: string
+ *                             nullable: true
+ *                           maxUses:
+ *                             type: number
+ *                             nullable: true
+ *                           currentUses:
+ *                             type: number
+ *                             nullable: true
+ *                           usesRemaining:
+ *                             type: number
+ *                           expiresAt:
+ *                             type: string
+ *                             format: date-time
+ *                             nullable: true
+ *                           status:
+ *                             type: string
+ *                             enum: [active, expired, exhausted, inactive]
+ *                     total:
+ *                       type: number
+ *                       description: Total number of keys
+ *                     page:
+ *                       type: number
+ *                       description: Current page number
+ *                     limit:
+ *                       type: number
+ *                       description: Number of keys per page
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       403:
+ *         description: Forbidden - Admin access required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 router.get('/registration-keys',
   authenticateToken,
   requireRole(['admin']),
