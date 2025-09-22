@@ -24,6 +24,98 @@ const CreateBulkKeysSchema = z.object({
   keyPrefix: z.string().optional(),
 });
 
+/**
+ * @swagger
+ * /api/admin/registration-keys:
+ *   post:
+ *     summary: Create a new registration key
+ *     tags: [Admin - Registration Keys]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - role
+ *             properties:
+ *               role:
+ *                 type: string
+ *                 enum: [admin, moderator, author, school, teacher, student]
+ *                 description: Role that the registration key will grant
+ *               description:
+ *                 type: string
+ *                 description: Optional description for the key
+ *               maxUses:
+ *                 type: number
+ *                 minimum: 1
+ *                 description: Maximum number of uses (default: 1)
+ *               expiresAt:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Optional expiration date
+ *     responses:
+ *       201:
+ *         description: Registration key created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Registration key created successfully
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     keyInfo:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: string
+ *                         keyCode:
+ *                           type: string
+ *                         role:
+ *                           type: string
+ *                         description:
+ *                           type: string
+ *                           nullable: true
+ *                         maxUses:
+ *                           type: number
+ *                           nullable: true
+ *                         usesRemaining:
+ *                           type: number
+ *                         expiresAt:
+ *                           type: string
+ *                           format: date-time
+ *                           nullable: true
+ *                         status:
+ *                           type: string
+ *                           enum: [active, expired, exhausted, inactive]
+ *       400:
+ *         description: Invalid input data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       403:
+ *         description: Forbidden - Admin access required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 router.post('/registration-keys',
   authenticateToken,
   requireRole(['admin']),
