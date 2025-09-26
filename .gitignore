@@ -85,3 +85,4 @@ temp/
 
 # Uploads
 uploads/
+.vercel
