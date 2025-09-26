@@ -221,7 +221,7 @@ router.get('/my-school', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Error getting school data:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: { code: 'INTERNAL_ERROR', message: 'Failed to retrieve school data' }
     });
@@ -276,7 +276,7 @@ router.get('/my-students', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Error getting students:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: { code: 'INTERNAL_ERROR', message: 'Failed to retrieve students' }
     });
@@ -340,7 +340,7 @@ router.get('/my-teacher', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Error getting teacher:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: { code: 'INTERNAL_ERROR', message: 'Failed to retrieve teacher' }
     });
@@ -383,14 +383,14 @@ router.get('/my-info', authenticateToken, async (req, res) => {
       .where(eq(users.id, user.userId))
       .limit(1);
 
-    res.json({
+    return res.json({
       success: true,
       message: 'User info retrieved successfully',
       data: { user: currentUser }
     });
   } catch (error) {
     console.error('Error getting user info:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: { code: 'INTERNAL_ERROR', message: 'Failed to retrieve user info' }
     });
