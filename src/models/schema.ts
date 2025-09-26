@@ -31,6 +31,8 @@ export const users = pgTable('users', {
   role: userRoleEnum('role').notNull(),
   registrationKeyId: uuid('registration_key_id'),
   schoolId: uuid('school_id'),
+  teacherId: uuid('teacher_id'),
+  isActive: boolean('is_active').default(true),
   organizationInfo: jsonb('organization_info').default({}),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
@@ -123,6 +125,14 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     fields: [users.schoolId],
     references: [schools.id],
   }),
+  teacher: one(users, {
+    fields: [users.teacherId],
+    references: [users.id],
+    relationName: 'teacher_students'
+  }),
+  students: many(users, {
+    relationName: 'teacher_students'
+  }),
   ownedBooks: many(books),
   collaborations: many(bookCollaborators),
   sessions: many(sessions),
@@ -144,6 +154,7 @@ export const schoolsRelations = relations(schools, ({ one, many }) => ({
   }),
   users: many(users),
   books: many(books),
+  registrationKeys: many(registrationKeys),
 }));
 
 export const booksRelations = relations(books, ({ one, many }) => ({

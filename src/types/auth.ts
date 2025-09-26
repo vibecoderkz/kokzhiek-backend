@@ -8,6 +8,7 @@ export interface JWTPayload {
   email: string;
   role: UserRole;
   schoolId?: string;
+  teacherId?: string;
   iat: number;
   exp: number;
 }
@@ -22,7 +23,6 @@ export const RegisterSchema = z.object({
   registrationKey: z.string().min(1, 'Registration key is required'),
   schoolId: z.string().uuid().optional(),
   schoolName: z.string().optional(),
-  schoolAddress: z.string().optional(),
 });
 
 export const LoginSchema = z.object({

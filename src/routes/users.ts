@@ -174,4 +174,227 @@ router.put('/profile', authenticateToken, validateRequest(UpdateProfileSchema), 
  */
 router.put('/change-password', authenticateToken, validateRequest(ChangePasswordSchema), authController.changePassword);
 
+/**
+ * @swagger
+ * /api/users/my-school:
+ *   get:
+ *     summary: Get my school data (for school role - see all teachers and students)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: School data retrieved successfully
+ *       403:
+ *         description: Access denied - only for school role
+ */
+router.get('/my-school', authenticateToken, async (req, res) => {
+  try {
+    const user = (req as any).user;
+
+    if (user.role !== 'school') {
+      return res.status(403).json({
+        success: false,
+        error: { code: 'FORBIDDEN', message: 'Only school administrators can access this endpoint' }
+      });
+    }
+
+    const { SchoolService } = await import('../services/schoolService');
+
+    if (!user.schoolId) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'SCHOOL_NOT_FOUND', message: 'School not found for this user' }
+      });
+    }
+
+    const schoolUsers = await SchoolService.getSchoolUsers(user.schoolId);
+    const schoolInfo = await SchoolService.getSchoolById(user.schoolId);
+
+    res.json({
+      success: true,
+      message: 'School data retrieved successfully',
+      data: {
+        school: schoolInfo,
+        users: schoolUsers.data
+      }
+    });
+  } catch (error) {
+    console.error('Error getting school data:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to retrieve school data' }
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/users/my-students:
+ *   get:
+ *     summary: Get my students (for teacher role)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Students retrieved successfully
+ *       403:
+ *         description: Access denied - only for teacher role
+ */
+router.get('/my-students', authenticateToken, async (req, res) => {
+  try {
+    const user = (req as any).user;
+
+    if (user.role !== 'teacher') {
+      return res.status(403).json({
+        success: false,
+        error: { code: 'FORBIDDEN', message: 'Only teachers can access this endpoint' }
+      });
+    }
+
+    const { db } = await import('../config/database');
+    const { users } = await import('../models/schema');
+    const { eq } = await import('drizzle-orm');
+
+    const students = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        role: users.role,
+        createdAt: users.createdAt
+      })
+      .from(users)
+      .where(eq(users.teacherId, user.userId));
+
+    res.json({
+      success: true,
+      message: 'Students retrieved successfully',
+      data: { students }
+    });
+  } catch (error) {
+    console.error('Error getting students:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to retrieve students' }
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/users/my-teacher:
+ *   get:
+ *     summary: Get my teacher (for student role)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Teacher retrieved successfully
+ *       403:
+ *         description: Access denied - only for student role
+ */
+router.get('/my-teacher', authenticateToken, async (req, res) => {
+  try {
+    const user = (req as any).user;
+
+    if (user.role !== 'student') {
+      return res.status(403).json({
+        success: false,
+        error: { code: 'FORBIDDEN', message: 'Only students can access this endpoint' }
+      });
+    }
+
+    const { db } = await import('../config/database');
+    const { users } = await import('../models/schema');
+    const { eq } = await import('drizzle-orm');
+
+    if (!user.teacherId) {
+      return res.json({
+        success: true,
+        message: 'No teacher assigned',
+        data: { teacher: null }
+      });
+    }
+
+    const [teacher] = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        role: users.role,
+        schoolId: users.schoolId
+      })
+      .from(users)
+      .where(eq(users.id, user.teacherId))
+      .limit(1);
+
+    res.json({
+      success: true,
+      message: 'Teacher retrieved successfully',
+      data: { teacher }
+    });
+  } catch (error) {
+    console.error('Error getting teacher:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to retrieve teacher' }
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/users/my-info:
+ *   get:
+ *     summary: Get current user info with related data based on role
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User info retrieved successfully
+ */
+router.get('/my-info', authenticateToken, async (req, res) => {
+  try {
+    const user = (req as any).user;
+
+    const { db } = await import('../config/database');
+    const { users } = await import('../models/schema');
+    const { eq } = await import('drizzle-orm');
+
+    // Get current user details
+    const [currentUser] = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        role: users.role,
+        schoolId: users.schoolId,
+        teacherId: users.teacherId,
+        createdAt: users.createdAt
+      })
+      .from(users)
+      .where(eq(users.id, user.userId))
+      .limit(1);
+
+    res.json({
+      success: true,
+      message: 'User info retrieved successfully',
+      data: { user: currentUser }
+    });
+  } catch (error) {
+    console.error('Error getting user info:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to retrieve user info' }
+    });
+  }
+});
+
 export default router;

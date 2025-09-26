@@ -1,6 +1,6 @@
 import { eq, and, lt, gt, or, isNull } from 'drizzle-orm';
 import { db } from '../config/database';
-import { registrationKeys } from '../models/schema';
+import { registrationKeys, users } from '../models/schema';
 import { UserRole } from '../types/auth';
 import { generateRegistrationKey } from '../utils/crypto';
 
@@ -103,7 +103,7 @@ export class RegistrationKeyService {
     page?: number;
     limit?: number;
     status?: 'active' | 'expired' | 'exhausted' | 'inactive';
-  }): Promise<{ keys: RegistrationKeyInfo[]; total: number }> {
+  }): Promise<{ keys: RegistrationKeyInfo[]; total: number; totalPages: number }> {
     const page = options?.page || 1;
     const limit = options?.limit || 20;
     const offset = (page - 1) * limit;
@@ -138,6 +138,13 @@ export class RegistrationKeyService {
       }
     }
 
+    // Сначала получаем общее количество записей
+    const totalCountResult = await db.query.registrationKeys.findMany({
+      where: whereConditions.length > 0 ? and(...whereConditions) : undefined,
+    });
+    const total = totalCountResult.length;
+
+    // Затем получаем ключи для текущей страницы
     const keys = await db.query.registrationKeys.findMany({
       where: whereConditions.length > 0 ? and(...whereConditions) : undefined,
       limit,
@@ -145,13 +152,12 @@ export class RegistrationKeyService {
       orderBy: (registrationKeys, { desc }) => [desc(registrationKeys.createdAt)],
     });
 
-    // For simplicity, we'll return the current page count as total
-    // In a real implementation, you'd want to run a separate count query
-    const total = keys.length;
+    const totalPages = Math.ceil(total / limit);
 
     return {
       keys: keys.map(key => this.formatKeyInfo(key)),
-      total
+      total,
+      totalPages
     };
   }
 
@@ -195,6 +201,41 @@ export class RegistrationKeyService {
         return { success: false, error: 'Registration key not found' };
       }
 
+      // Деактивируем пользователей в зависимости от типа ключа
+      if (key.role === 'school') {
+        // Если удаляется ключ школы, сначала найдем пользователя школы
+        const schoolUser = await db.query.users.findFirst({
+          where: eq(users.registrationKeyId, key.id),
+        });
+
+        if (schoolUser && schoolUser.schoolId) {
+          // Деактивируем ВСЕХ пользователей этой школы (включая учителей и учеников)
+          await db.update(users)
+            .set({
+              isActive: false,
+              updatedAt: new Date()
+            })
+            .where(eq(users.schoolId, schoolUser.schoolId));
+        }
+
+        // Также деактивируем самого пользователя школы
+        await db.update(users)
+          .set({
+            isActive: false,
+            updatedAt: new Date()
+          })
+          .where(eq(users.registrationKeyId, key.id));
+      } else {
+        // Для остальных ролей (teacher, student и т.д.) деактивируем только зарегистрированных по этому ключу
+        await db.update(users)
+          .set({
+            isActive: false,
+            updatedAt: new Date()
+          })
+          .where(eq(users.registrationKeyId, key.id));
+      }
+
+      // Удаляем ключ
       await db.delete(registrationKeys)
         .where(eq(registrationKeys.keyCode, keyCode));
 

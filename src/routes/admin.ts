@@ -1,8 +1,10 @@
+
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth';
 import { validateRequest } from '../middleware/validation';
 import { requireRole } from '../middleware/roleAuth';
 import { RegistrationKeyService } from '../services/registrationKeyService';
+import { SchoolService } from '../services/schoolService';
 import { z } from 'zod';
 import { UserRole } from '../types/auth';
 
@@ -606,6 +608,528 @@ router.delete('/registration-keys/:keyCode',
         error: {
           code: 'INTERNAL_ERROR',
           message: 'Failed to delete registration key',
+        }
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /api/admin/schools:
+ *   get:
+ *     summary: Get all schools with statistics
+ *     tags: [Admin - Schools]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Schools retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Schools retrieved successfully
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       description:
+ *                         type: string
+ *                         nullable: true
+ *                       address:
+ *                         type: string
+ *                         nullable: true
+ *                       isActive:
+ *                         type: boolean
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                       teachersCount:
+ *                         type: number
+ *                       studentsCount:
+ *                         type: number
+ *                       admin:
+ *                         type: object
+ *                         nullable: true
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                           firstName:
+ *                             type: string
+ *                             nullable: true
+ *                           lastName:
+ *                             type: string
+ *                             nullable: true
+ *                           email:
+ *                             type: string
+ *                       keyStats:
+ *                         type: object
+ *                         properties:
+ *                           totalKeys:
+ *                             type: number
+ *                           usedKeys:
+ *                             type: number
+ *                           activeKeys:
+ *                             type: number
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin access required
+ */
+router.get('/schools',
+  authenticateToken,
+  requireRole(['admin']),
+  async (req, res): Promise<void> => {
+    try {
+      const schools = await SchoolService.getAllSchools();
+
+      res.json({
+        success: true,
+        message: 'Schools retrieved successfully',
+        data: schools
+      });
+    } catch (error) {
+      console.error('Error retrieving schools:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to retrieve schools',
+        }
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /api/admin/schools/{schoolId}/users:
+ *   get:
+ *     summary: Get all users in a specific school
+ *     tags: [Admin - Schools]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: schoolId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The school ID
+ *     responses:
+ *       200:
+ *         description: School users retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: School users retrieved successfully
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       email:
+ *                         type: string
+ *                       firstName:
+ *                         type: string
+ *                         nullable: true
+ *                       lastName:
+ *                         type: string
+ *                         nullable: true
+ *                       role:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                       teacherId:
+ *                         type: string
+ *                         nullable: true
+ *       404:
+ *         description: School not found
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin access required
+ */
+router.get('/schools/:schoolId/users',
+  authenticateToken,
+  requireRole(['admin']),
+  async (req, res): Promise<void> => {
+    try {
+      const { schoolId } = req.params;
+
+      const school = await SchoolService.getSchoolById(schoolId);
+      if (!school) {
+        res.status(404).json({
+          success: false,
+          error: {
+            code: 'SCHOOL_NOT_FOUND',
+            message: 'School not found',
+          }
+        });
+        return;
+      }
+
+      const users = await SchoolService.getSchoolUsers(schoolId);
+
+      res.json({
+        success: true,
+        message: 'School users retrieved successfully',
+        data: users
+      });
+    } catch (error) {
+      console.error('Error retrieving school users:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to retrieve school users',
+        }
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /api/admin/assign-student:
+ *   post:
+ *     summary: Assign student to teacher
+ *     tags: [Admin - User Management]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - studentId
+ *               - teacherId
+ *             properties:
+ *               studentId:
+ *                 type: string
+ *                 description: ID of the student
+ *               teacherId:
+ *                 type: string
+ *                 description: ID of the teacher (empty string to unassign)
+ *     responses:
+ *       200:
+ *         description: Student assigned successfully
+ *       404:
+ *         description: Student or teacher not found
+ */
+router.post('/assign-student',
+  authenticateToken,
+  requireRole(['admin']),
+  async (req, res): Promise<void> => {
+    try {
+      const { studentId, teacherId } = req.body;
+
+      const { db } = await import('../config/database');
+      const { users } = await import('../models/schema');
+      const { eq, and } = await import('drizzle-orm');
+
+      // Validate student exists and is a student
+      const [student] = await db
+        .select()
+        .from(users)
+        .where(and(eq(users.id, studentId), eq(users.role, 'student')))
+        .limit(1);
+
+      if (!student) {
+        res.status(404).json({
+          success: false,
+          error: { code: 'STUDENT_NOT_FOUND', message: 'Student not found' }
+        });
+        return;
+      }
+
+      // If teacherId is provided, validate teacher exists and is a teacher
+      if (teacherId && teacherId !== '') {
+        const [teacher] = await db
+          .select()
+          .from(users)
+          .where(and(eq(users.id, teacherId), eq(users.role, 'teacher')))
+          .limit(1);
+
+        if (!teacher) {
+          res.status(404).json({
+            success: false,
+            error: { code: 'TEACHER_NOT_FOUND', message: 'Teacher not found' }
+          });
+          return;
+        }
+
+        // Validate teacher and student are in the same school
+        if (teacher.schoolId !== student.schoolId) {
+          res.status(400).json({
+            success: false,
+            error: { code: 'SCHOOL_MISMATCH', message: 'Teacher and student must be in the same school' }
+          });
+          return;
+        }
+      }
+
+      // Update student's teacherId
+      await db
+        .update(users)
+        .set({ teacherId: teacherId === '' ? null : teacherId })
+        .where(eq(users.id, studentId));
+
+      res.json({
+        success: true,
+        message: teacherId === '' ? 'Student unassigned from teacher' : 'Student assigned to teacher successfully'
+      });
+    } catch (error) {
+      console.error('Error assigning student:', error);
+      res.status(500).json({
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message: 'Failed to assign student' }
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /api/admin/dashboard/stats:
+ *   get:
+ *     summary: Get dashboard statistics
+ *     tags: [Admin - Dashboard]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Dashboard statistics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     totalKeys:
+ *                       type: number
+ *                     usedKeys:
+ *                       type: number
+ *                     totalSchools:
+ *                       type: number
+ *                     totalUsers:
+ *                       type: number
+ *                     activeUsers:
+ *                       type: number
+ */
+router.get('/dashboard/stats',
+  authenticateToken,
+  requireRole(['admin']),
+  async (req, res): Promise<void> => {
+    try {
+      const { db } = await import('../config/database');
+      const { registrationKeys, schools, users } = await import('../models/schema');
+      const { count, gt, eq, and } = await import('drizzle-orm');
+
+      // Get total keys
+      const [totalKeysResult] = await db
+        .select({ count: count() })
+        .from(registrationKeys);
+
+      // Get used keys (where currentUses > 0)
+      const [usedKeysResult] = await db
+        .select({ count: count() })
+        .from(registrationKeys)
+        .where(gt(registrationKeys.currentUses, 0));
+
+      // Get total schools
+      const [totalSchoolsResult] = await db
+        .select({ count: count() })
+        .from(schools);
+
+      // Get total users (only active)
+      const [totalUsersResult] = await db
+        .select({ count: count() })
+        .from(users)
+        .where(eq(users.isActive, true));
+
+      // Get active users (active AND emailVerified)
+      const [activeUsersResult] = await db
+        .select({ count: count() })
+        .from(users)
+        .where(and(eq(users.isActive, true), eq(users.emailVerified, true)));
+
+      res.json({
+        success: true,
+        data: {
+          totalKeys: totalKeysResult.count,
+          usedKeys: usedKeysResult.count,
+          totalSchools: totalSchoolsResult.count,
+          totalUsers: totalUsersResult.count,
+          activeUsers: activeUsersResult.count
+        }
+      });
+    } catch (error) {
+      console.error('Error retrieving dashboard stats:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to retrieve dashboard statistics',
+        }
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /api/admin/export:
+ *   get:
+ *     summary: Export system data
+ *     tags: [Admin - Export]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: format
+ *         schema:
+ *           type: string
+ *           enum: [csv, json]
+ *           default: csv
+ *         description: Export format
+ *       - in: query
+ *         name: data
+ *         schema:
+ *           type: string
+ *           enum: [all, keys, schools, users]
+ *           default: all
+ *         description: Data to export
+ *     responses:
+ *       200:
+ *         description: Data exported successfully
+ *         content:
+ *           text/csv:
+ *             schema:
+ *               type: string
+ *           application/json:
+ *             schema:
+ *               type: object
+ */
+router.get('/export',
+  authenticateToken,
+  requireRole(['admin']),
+  async (req, res): Promise<void> => {
+    try {
+      const format = (req.query.format as string) || 'csv';
+      const dataType = (req.query.data as string) || 'all';
+
+      const { db } = await import('../config/database');
+      const { registrationKeys, schools, users } = await import('../models/schema');
+
+      let data: any = {};
+
+      if (dataType === 'all' || dataType === 'keys') {
+        const keysData = await db.select().from(registrationKeys);
+        data.registrationKeys = keysData;
+      }
+
+      if (dataType === 'all' || dataType === 'schools') {
+        const schoolsData = await db.select().from(schools);
+        data.schools = schoolsData;
+      }
+
+      if (dataType === 'all' || dataType === 'users') {
+        const usersData = await db.select({
+          id: users.id,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          role: users.role,
+          schoolId: users.schoolId,
+          teacherId: users.teacherId,
+          emailVerified: users.emailVerified,
+          createdAt: users.createdAt
+        }).from(users);
+        data.users = usersData;
+      }
+
+      if (format === 'json') {
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Content-Disposition', `attachment; filename=kokzhiek_export_${new Date().toISOString().split('T')[0]}.json`);
+        res.json(data);
+      } else {
+        // CSV format
+        const createCSV = (items: any[], headers: string[]) => {
+          if (!items.length) return '';
+          const csvHeaders = headers.join(',');
+          const csvRows = items.map(item =>
+            headers.map(header => {
+              const value = item[header];
+              if (value === null || value === undefined) return '';
+              if (typeof value === 'string' && value.includes(',')) {
+                return `"${value.replace(/"/g, '""')}"`;
+              }
+              return String(value);
+            }).join(',')
+          );
+          return [csvHeaders, ...csvRows].join('\n');
+        };
+
+        let csvContent = '';
+
+        if (data.registrationKeys) {
+          csvContent += 'REGISTRATION KEYS\n';
+          csvContent += createCSV(data.registrationKeys, ['id', 'keyCode', 'role', 'description', 'maxUses', 'currentUses', 'expiresAt', 'isActive', 'createdAt']);
+          csvContent += '\n\n';
+        }
+
+        if (data.schools) {
+          csvContent += 'SCHOOLS\n';
+          csvContent += createCSV(data.schools, ['id', 'name', 'description', 'address', 'isActive', 'adminId', 'createdAt']);
+          csvContent += '\n\n';
+        }
+
+        if (data.users) {
+          csvContent += 'USERS\n';
+          csvContent += createCSV(data.users, ['id', 'email', 'firstName', 'lastName', 'role', 'schoolId', 'teacherId', 'emailVerified', 'createdAt']);
+        }
+
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename=kokzhiek_export_${new Date().toISOString().split('T')[0]}.csv`);
+        res.send(csvContent);
+      }
+    } catch (error) {
+      console.error('Error exporting data:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to export data',
         }
       });
     }

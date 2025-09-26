@@ -58,7 +58,6 @@ export class AuthService {
     if (keyInfo.role === 'school' && input.schoolName) {
       const [school] = await db.insert(schools).values({
         name: input.schoolName,
-        address: input.schoolAddress,
         isActive: true,
       }).returning();
       schoolId = school.id;
@@ -115,6 +114,7 @@ export class AuthService {
       email: user.email,
       role: user.role as UserRole,
       schoolId: user.schoolId || undefined,
+      teacherId: user.teacherId || undefined,
     });
 
     return {
