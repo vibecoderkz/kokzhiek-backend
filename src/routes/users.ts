@@ -211,12 +211,12 @@ router.get('/my-school', authenticateToken, async (req, res) => {
     const schoolUsers = await SchoolService.getSchoolUsers(user.schoolId);
     const schoolInfo = await SchoolService.getSchoolById(user.schoolId);
 
-    res.json({
+    return res.json({
       success: true,
       message: 'School data retrieved successfully',
       data: {
         school: schoolInfo,
-        users: schoolUsers.data
+        users: schoolUsers
       }
     });
   } catch (error) {
@@ -269,7 +269,7 @@ router.get('/my-students', authenticateToken, async (req, res) => {
       .from(users)
       .where(eq(users.teacherId, user.userId));
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Students retrieved successfully',
       data: { students }
@@ -333,7 +333,7 @@ router.get('/my-teacher', authenticateToken, async (req, res) => {
       .where(eq(users.id, user.teacherId))
       .limit(1);
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Teacher retrieved successfully',
       data: { teacher }
