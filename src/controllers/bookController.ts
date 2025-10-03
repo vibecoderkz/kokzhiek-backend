@@ -4,6 +4,8 @@ import { z } from 'zod';
 
 const CreateBookSchema = z.object({
   title: z.string().min(1, 'Title is required').max(255, 'Title must be less than 255 characters'),
+  author: z.string().optional(),
+  class: z.string().max(10, 'Class must be less than 10 characters').optional(),
   description: z.string().optional(),
   coverImageUrl: z.string().url('Invalid URL format').optional(),
   isPublic: z.boolean().optional(),
@@ -13,6 +15,8 @@ const CreateBookSchema = z.object({
 
 const UpdateBookSchema = z.object({
   title: z.string().min(1, 'Title is required').max(255, 'Title must be less than 255 characters').optional(),
+  author: z.string().optional(),
+  class: z.string().max(10, 'Class must be less than 10 characters').optional(),
   description: z.string().optional(),
   coverImageUrl: z.string().url('Invalid URL format').optional(),
   isPublic: z.boolean().optional(),

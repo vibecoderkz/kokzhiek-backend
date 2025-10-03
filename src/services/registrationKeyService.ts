@@ -103,6 +103,7 @@ export class RegistrationKeyService {
     page?: number;
     limit?: number;
     status?: 'active' | 'expired' | 'exhausted' | 'inactive';
+    keyCode?: string;
   }): Promise<{ keys: RegistrationKeyInfo[]; total: number; totalPages: number }> {
     const page = options?.page || 1;
     const limit = options?.limit || 20;
@@ -110,30 +111,35 @@ export class RegistrationKeyService {
 
     let whereConditions: any[] = [];
 
+    // Add keyCode filter if provided
+    if (options?.keyCode) {
+      whereConditions.push(eq(registrationKeys.keyCode, options.keyCode));
+    }
+
     if (options?.status) {
       switch (options.status) {
         case 'active':
-          whereConditions = [
+          whereConditions.push(
             eq(registrationKeys.isActive, true),
             or(
               isNull(registrationKeys.expiresAt),
               gt(registrationKeys.expiresAt, new Date())
             )
-          ];
+          );
           break;
         case 'expired':
-          whereConditions = [
+          whereConditions.push(
             eq(registrationKeys.isActive, true),
             lt(registrationKeys.expiresAt, new Date())
-          ];
+          );
           break;
         case 'exhausted':
-          whereConditions = [
+          whereConditions.push(
             eq(registrationKeys.isActive, true)
-          ];
+          );
           break;
         case 'inactive':
-          whereConditions = [eq(registrationKeys.isActive, false)];
+          whereConditions.push(eq(registrationKeys.isActive, false));
           break;
       }
     }

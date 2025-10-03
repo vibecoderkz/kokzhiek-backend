@@ -381,11 +381,13 @@ router.get('/registration-keys',
       const page = parseInt(req.query.page as string) || 1;
       const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
       const status = req.query.status as 'active' | 'expired' | 'exhausted' | 'inactive' | undefined;
+      const keyCode = req.query.keyCode as string | undefined;
 
       const result = await RegistrationKeyService.getAllRegistrationKeys({
         page,
         limit,
         status,
+        keyCode,
       });
 
       res.json({
@@ -1000,6 +1002,206 @@ router.get('/dashboard/stats',
         error: {
           code: 'INTERNAL_ERROR',
           message: 'Failed to retrieve dashboard statistics',
+        }
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /api/admin/users:
+ *   get:
+ *     summary: Get all users with filtering and pagination
+ *     tags: [Admin - User Management]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: number
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: number
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         description: Number of users per page
+ *       - in: query
+ *         name: role
+ *         schema:
+ *           type: string
+ *           enum: [admin, moderator, author, school, teacher, student]
+ *         description: Filter by user role
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search by name or email
+ *     responses:
+ *       200:
+ *         description: Users retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Users retrieved successfully
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     users:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                           email:
+ *                             type: string
+ *                           firstName:
+ *                             type: string
+ *                           lastName:
+ *                             type: string
+ *                           role:
+ *                             type: string
+ *                           schoolId:
+ *                             type: string
+ *                             nullable: true
+ *                           teacherId:
+ *                             type: string
+ *                             nullable: true
+ *                           schoolName:
+ *                             type: string
+ *                             nullable: true
+ *                           emailVerified:
+ *                             type: boolean
+ *                           createdAt:
+ *                             type: string
+ *                             format: date-time
+ *                     total:
+ *                       type: number
+ *                       description: Total number of users
+ *                     page:
+ *                       type: number
+ *                       description: Current page number
+ *                     limit:
+ *                       type: number
+ *                       description: Number of users per page
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin access required
+ */
+router.get('/users',
+  authenticateToken,
+  requireRole(['admin']),
+  async (req, res): Promise<void> => {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = Math.min(parseInt(req.query.limit as string) || 10, 100);
+      const role = req.query.role as string | undefined;
+      const search = req.query.search as string | undefined;
+
+      const { db } = await import('../config/database');
+      const { users } = await import('../models/schema');
+      const { eq, like, and, or, desc, count } = await import('drizzle-orm');
+
+      // Build where conditions
+      const conditions = [];
+
+      if (role) {
+        conditions.push(eq(users.role, role as any));
+      }
+
+      if (search) {
+        const searchLower = `%${search.toLowerCase()}%`;
+        conditions.push(
+          or(
+            like(users.firstName, searchLower),
+            like(users.lastName, searchLower),
+            like(users.email, searchLower)
+          )
+        );
+      }
+
+      // Get total count
+      const [totalResult] = await db
+        .select({ count: count() })
+        .from(users)
+        .where(conditions.length > 0 ? and(...conditions) : undefined);
+
+      // Get paginated users
+      const usersList = await db
+        .select({
+          id: users.id,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          role: users.role,
+          schoolId: users.schoolId,
+          teacherId: users.teacherId,
+          emailVerified: users.emailVerified,
+          createdAt: users.createdAt,
+          updatedAt: users.updatedAt
+        })
+        .from(users)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(users.createdAt))
+        .limit(limit)
+        .offset((page - 1) * limit);
+
+      // Add school names for users with schoolId
+      const enrichedUsers = await Promise.all(
+        usersList.map(async (user) => {
+          let schoolName = null;
+
+          if (user.schoolId) {
+            const [school] = await db
+              .select({ firstName: users.firstName, lastName: users.lastName })
+              .from(users)
+              .where(and(eq(users.id, user.schoolId), eq(users.role, 'school')))
+              .limit(1);
+
+            if (school) {
+              schoolName = `${school.firstName} ${school.lastName}`;
+            }
+          }
+
+          return {
+            ...user,
+            schoolName
+          };
+        })
+      );
+
+      res.json({
+        success: true,
+        message: 'Users retrieved successfully',
+        data: {
+          users: enrichedUsers,
+          total: totalResult.count,
+          page,
+          limit
+        }
+      });
+    } catch (error) {
+      console.error('Error retrieving users:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to retrieve users',
         }
       });
     }

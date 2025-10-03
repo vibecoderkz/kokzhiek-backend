@@ -5,6 +5,8 @@ import { UserRole } from '../types/auth';
 
 export interface CreateBookInput {
   title: string;
+  author?: string;
+  class?: string;
   description?: string;
   coverImageUrl?: string;
   isPublic?: boolean;
@@ -16,6 +18,8 @@ export interface CreateBookInput {
 
 export interface UpdateBookInput {
   title?: string;
+  author?: string;
+  class?: string;
   description?: string;
   coverImageUrl?: string;
   isPublic?: boolean;
@@ -36,6 +40,8 @@ export interface BookFilters {
 export interface BookWithDetails {
   id: string;
   title: string;
+  author: string | null;
+  class: string | null;
   description: string | null;
   coverImageUrl: string | null;
   isPublic: boolean | null;
@@ -76,6 +82,8 @@ export class BookService {
   static async createBook(input: CreateBookInput): Promise<BookWithDetails> {
     const [book] = await db.insert(books).values({
       title: input.title,
+      author: input.author,
+      class: input.class,
       description: input.description,
       coverImageUrl: input.coverImageUrl,
       isPublic: input.isPublic || false,
@@ -169,6 +177,8 @@ export class BookService {
       .map(row => ({
         id: row.book.id,
         title: row.book.title,
+        author: row.book.author,
+        class: row.book.class,
         description: row.book.description,
         coverImageUrl: row.book.coverImageUrl,
         isPublic: row.book.isPublic,
@@ -272,6 +282,8 @@ export class BookService {
     return {
       id: bookData.book.id,
       title: bookData.book.title,
+      author: bookData.book.author,
+      class: bookData.book.class,
       description: bookData.book.description,
       coverImageUrl: bookData.book.coverImageUrl,
       isPublic: bookData.book.isPublic,
@@ -366,6 +378,8 @@ export class BookService {
     return {
       id: book.id,
       title: book.title,
+      author: book.author,
+      class: book.class,
       description: book.description,
       coverImageUrl: book.coverImageUrl,
       isPublic: book.isPublic,

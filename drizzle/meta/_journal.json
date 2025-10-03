@@ -22,6 +22,13 @@
       "when": 1758880590304,
       "tag": "0002_little_cardiac",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1759436135205,
+      "tag": "0003_foamy_tombstone",
+      "breakpoints": true
     }
   ]
 }

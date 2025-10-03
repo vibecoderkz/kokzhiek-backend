@@ -55,6 +55,8 @@ export const schools = pgTable('schools', {
 export const books = pgTable('books', {
   id: uuid('id').primaryKey().defaultRandom(),
   title: varchar('title', { length: 255 }).notNull(),
+  author: text('author'),
+  class: varchar('class', { length: 10 }),
   description: text('description'),
   coverImageUrl: text('cover_image_url'),
   ownerId: uuid('owner_id').notNull(),
