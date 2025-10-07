@@ -168,6 +168,12 @@ export class ChapterService {
   }
 
   static async updateChapter(chapterId: string, input: UpdateChapterInput, userId: string): Promise<ChapterWithBlocks> {
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(chapterId)) {
+      throw new Error('Invalid chapter ID format. Please create chapter first.');
+    }
+
     // Get chapter to check book access
     const chapter = await db.query.chapters.findFirst({
       where: eq(chapters.id, chapterId),
