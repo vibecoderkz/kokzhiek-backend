@@ -4,24 +4,42 @@ import { z } from 'zod';
 
 const CreateBookSchema = z.object({
   title: z.string().min(1, 'Title is required').max(255, 'Title must be less than 255 characters'),
-  author: z.string().optional(),
-  class: z.string().max(10, 'Class must be less than 10 characters').optional(),
+  author: z.string().optional(), // legacy field
+  authors: z.array(z.string()).optional(), // NEW: array of authors
+  class: z.string().max(10, 'Class must be less than 10 characters').optional(), // legacy
+  grade: z.number().int().min(1).max(11).optional(), // NEW: grade (1-11)
   description: z.string().optional(),
-  coverImageUrl: z.string().url('Invalid URL format').optional(),
+  coverImageUrl: z.string().optional(), // Removed URL validation to allow base64
   isPublic: z.boolean().optional(),
   visibility: z.enum(['private', 'school', 'public']).optional(),
   settings: z.record(z.any()).optional(),
+  // NEW metadata fields
+  isbn: z.string().max(50).optional(),
+  year: z.number().int().min(1900).max(2100).optional(),
+  publisher: z.string().max(255).optional(),
+  edition: z.string().max(100).optional(),
+  subject: z.string().max(100).optional(),
+  language: z.enum(['kz', 'ru', 'en']).optional(),
 });
 
 const UpdateBookSchema = z.object({
   title: z.string().min(1, 'Title is required').max(255, 'Title must be less than 255 characters').optional(),
-  author: z.string().optional(),
-  class: z.string().max(10, 'Class must be less than 10 characters').optional(),
+  author: z.string().optional(), // legacy field
+  authors: z.array(z.string()).optional(), // NEW: array of authors
+  class: z.string().max(10, 'Class must be less than 10 characters').optional(), // legacy
+  grade: z.number().int().min(1).max(11).optional(), // NEW: grade (1-11)
   description: z.string().optional(),
-  coverImageUrl: z.string().url('Invalid URL format').optional(),
+  coverImageUrl: z.string().optional(), // Removed URL validation to allow base64
   isPublic: z.boolean().optional(),
   visibility: z.enum(['private', 'school', 'public']).optional(),
   settings: z.record(z.any()).optional(),
+  // NEW metadata fields
+  isbn: z.string().max(50).optional(),
+  year: z.number().int().min(1900).max(2100).optional(),
+  publisher: z.string().max(255).optional(),
+  edition: z.string().max(100).optional(),
+  subject: z.string().max(100).optional(),
+  language: z.enum(['kz', 'ru', 'en']).optional(),
 });
 
 const BookFiltersSchema = z.object({

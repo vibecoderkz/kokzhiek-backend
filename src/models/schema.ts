@@ -55,8 +55,10 @@ export const schools = pgTable('schools', {
 export const books = pgTable('books', {
   id: uuid('id').primaryKey().defaultRandom(),
   title: varchar('title', { length: 255 }).notNull(),
-  author: text('author'),
-  class: varchar('class', { length: 10 }),
+  author: text('author'), // legacy field
+  authors: jsonb('authors').default([]), // NEW: array of authors
+  class: varchar('class', { length: 10 }), // legacy field
+  grade: integer('grade'), // NEW: grade number (1-11)
   description: text('description'),
   coverImageUrl: text('cover_image_url'),
   ownerId: uuid('owner_id').notNull(),
@@ -64,6 +66,13 @@ export const books = pgTable('books', {
   isPublic: boolean('is_public').default(false),
   visibility: varchar('visibility', { length: 50 }).default('private'),
   settings: jsonb('settings').default({}),
+  // NEW metadata fields
+  isbn: varchar('isbn', { length: 50 }),
+  year: integer('year'),
+  publisher: varchar('publisher', { length: 255 }),
+  edition: varchar('edition', { length: 100 }),
+  subject: varchar('subject', { length: 100 }),
+  language: varchar('language', { length: 10 }).default('kz'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 });

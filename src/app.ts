@@ -27,9 +27,13 @@ app.use(cors({
     const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [];
     const isLocalhost = origin?.includes('localhost') || origin?.includes('127.0.0.1');
 
-    if (!origin || isLocalhost || allowedOrigins.includes(origin)) {
+    // Allow all Vercel preview deployments
+    const isVercelDeploy = origin?.includes('.vercel.app');
+
+    if (!origin || isLocalhost || isVercelDeploy || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      console.warn(`CORS blocked origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },

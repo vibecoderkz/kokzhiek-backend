@@ -29,6 +29,13 @@
       "when": 1759436135205,
       "tag": "0003_foamy_tombstone",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1759990571994,
+      "tag": "0004_open_madrox",
+      "breakpoints": true
     }
   ]
 }
