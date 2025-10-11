@@ -1210,6 +1210,132 @@ router.get('/users',
 
 /**
  * @swagger
+ * /api/admin/books:
+ *   get:
+ *     summary: Get all books with filtering and pagination
+ *     tags: [Admin - Books]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: number
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: number
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         description: Number of books per page
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search by book title or author
+ *     responses:
+ *       200:
+ *         description: Books retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin access required
+ */
+router.get('/books',
+  authenticateToken,
+  requireRole(['admin']),
+  async (req, res): Promise<void> => {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = Math.min(parseInt(req.query.limit as string) || 10, 100);
+      const search = req.query.search as string | undefined;
+
+      const { db } = await import('../config/database');
+      const { books, users } = await import('../models/schema');
+      const { like, or, desc, count, eq } = await import('drizzle-orm');
+
+      // Build where conditions
+      const conditions = [];
+
+      if (search) {
+        const searchLower = `%${search.toLowerCase()}%`;
+        conditions.push(
+          or(
+            like(books.title, searchLower),
+            like(books.author, searchLower)
+          )
+        );
+      }
+
+      // Get total count
+      const [totalResult] = await db
+        .select({ count: count() })
+        .from(books)
+        .where(conditions.length > 0 ? or(...conditions) : undefined);
+
+      // Get paginated books with owner info
+      const booksList = await db
+        .select({
+          id: books.id,
+          title: books.title,
+          author: books.author,
+          authors: books.authors,
+          class: books.class,
+          grade: books.grade,
+          description: books.description,
+          coverImageUrl: books.coverImageUrl,
+          ownerId: books.ownerId,
+          schoolId: books.schoolId,
+          isPublic: books.isPublic,
+          visibility: books.visibility,
+          isbn: books.isbn,
+          year: books.year,
+          publisher: books.publisher,
+          edition: books.edition,
+          subject: books.subject,
+          language: books.language,
+          createdAt: books.createdAt,
+          updatedAt: books.updatedAt,
+          ownerEmail: users.email,
+          ownerFirstName: users.firstName,
+          ownerLastName: users.lastName
+        })
+        .from(books)
+        .leftJoin(users, eq(users.id, books.ownerId))
+        .where(conditions.length > 0 ? or(...conditions) : undefined)
+        .orderBy(desc(books.createdAt))
+        .limit(limit)
+        .offset((page - 1) * limit);
+
+      res.json({
+        success: true,
+        message: 'Books retrieved successfully',
+        data: {
+          books: booksList,
+          total: totalResult.count,
+          page,
+          limit
+        }
+      });
+    } catch (error) {
+      console.error('Error retrieving books:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to retrieve books',
+        }
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
  * /api/admin/export:
  *   get:
  *     summary: Export system data
