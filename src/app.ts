@@ -11,6 +11,8 @@ import bookRoutes from './routes/books';
 import chapterRoutes from './routes/chapters';
 import blockRoutes from './routes/blocks';
 import publicRoutes from './routes/public';
+import exportRoutes from './routes/export';
+import searchRoutes from './routes/search';
 import { errorHandler } from './middleware/errorHandler';
 import { setupSwagger } from './config/swagger';
 
@@ -90,6 +92,8 @@ app.use('/api/books', bookRoutes);
 app.use('/api/chapters', chapterRoutes);
 app.use('/api/blocks', blockRoutes);
 app.use('/api/public', publicRoutes);
+app.use('/api/export', exportRoutes);
+app.use('/api/search', searchRoutes);
 
 app.use('*', (req, res) => {
   res.status(404).json({
