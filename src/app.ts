@@ -13,6 +13,7 @@ import blockRoutes from './routes/blocks';
 import publicRoutes from './routes/public';
 import exportRoutes from './routes/export';
 import searchRoutes from './routes/search';
+import auditRoutes from './routes/auditRoutes';
 import { errorHandler } from './middleware/errorHandler';
 import { setupSwagger } from './config/swagger';
 
@@ -94,6 +95,7 @@ app.use('/api/blocks', blockRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/export', exportRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api/audit', auditRoutes);
 
 app.use('*', (req, res) => {
   res.status(404).json({

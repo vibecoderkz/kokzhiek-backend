@@ -2,6 +2,7 @@ import { pgTable, uuid, varchar, text, integer, boolean, timestamp, jsonb, pgEnu
 import { relations } from 'drizzle-orm';
 
 export const userRoleEnum = pgEnum('user_role', ['admin', 'moderator', 'author', 'school', 'teacher', 'student']);
+export const auditActionEnum = pgEnum('audit_action', ['create', 'update', 'delete', 'login', 'logout', 'access']);
 
 export const registrationKeys = pgTable('registration_keys', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -127,6 +128,21 @@ export const mediaFiles = pgTable('media_files', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 });
 
+// Audit logs for tracking changes
+export const auditLogs = pgTable('audit_logs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id'), // null for system actions
+  action: auditActionEnum('action').notNull(),
+  entityType: varchar('entity_type', { length: 50 }).notNull(), // 'book', 'chapter', 'block', 'user', etc.
+  entityId: uuid('entity_id'), // ID of affected entity
+  description: text('description'), // Human-readable description
+  extraData: jsonb('extra_data'), // JSON with old/new values: { oldValue: {...}, newValue: {...}, changes: [...] }
+  ipAddress: varchar('ip_address', { length: 45 }), // IPv4 or IPv6
+  userAgent: text('user_agent'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }), // For soft deletion (cleanup after 6 months)
+});
+
 export const usersRelations = relations(users, ({ one, many }) => ({
   registrationKey: one(registrationKeys, {
     fields: [users.registrationKeyId],
@@ -221,6 +237,13 @@ export const sessionsRelations = relations(sessions, ({ one }) => ({
 export const mediaFilesRelations = relations(mediaFiles, ({ one }) => ({
   user: one(users, {
     fields: [mediaFiles.userId],
+    references: [users.id],
+  }),
+}));
+
+export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
+  user: one(users, {
+    fields: [auditLogs.userId],
     references: [users.id],
   }),
 }));
