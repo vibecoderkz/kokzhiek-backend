@@ -1,6 +1,6 @@
 import { db } from '../config/database';
 import { auditLogs } from '../models/schema';
-import { eq, and, desc, isNull, lt, sql } from 'drizzle-orm';
+import { eq, and, desc, isNull, lt, sql, ilike, or } from 'drizzle-orm';
 import { Request } from 'express';
 
 export type AuditAction = 'create' | 'update' | 'delete' | 'login' | 'logout' | 'access';
@@ -32,6 +32,7 @@ export interface AuditLogFilters {
   entityId?: string;
   startDate?: Date;
   endDate?: Date;
+  search?: string; // Поиск по описанию
   page?: number;
   limit?: number;
 }
@@ -215,6 +216,10 @@ export class AuditService {
     if (filters.endDate) {
       conditions.push(sql`${auditLogs.createdAt} <= ${filters.endDate}`);
     }
+    // Поиск по описанию (case-insensitive)
+    if (filters.search) {
+      conditions.push(ilike(auditLogs.description, `%${filters.search}%`));
+    }
 
     const logs = await db
       .select()
@@ -229,8 +234,11 @@ export class AuditService {
       .from(auditLogs)
       .where(and(...conditions));
 
+    // Скрываем личные данные из extraData
+    const sanitizedLogs = logs.map(log => this.sanitizeLog(log));
+
     return {
-      logs,
+      logs: sanitizedLogs,
       pagination: {
         page,
         limit,
@@ -320,5 +328,91 @@ export class AuditService {
     }
 
     return changes;
+  }
+
+  /**
+   * Скрыть личные данные из лога
+   */
+  private static sanitizeLog(log: any): any {
+    const sensitiveFields = [
+      'passwordHash',
+      'password',
+      'emailVerificationToken',
+      'passwordResetToken',
+      'tokenHash',
+      'token',
+    ];
+
+    const sanitizeObject = (obj: any): any => {
+      if (!obj || typeof obj !== 'object') {
+        return obj;
+      }
+
+      if (Array.isArray(obj)) {
+        return obj.map(item => sanitizeObject(item));
+      }
+
+      const sanitized: any = {};
+      for (const [key, value] of Object.entries(obj)) {
+        if (sensitiveFields.includes(key)) {
+          sanitized[key] = '[REDACTED]';
+        } else if (typeof value === 'object' && value !== null) {
+          sanitized[key] = sanitizeObject(value);
+        } else {
+          sanitized[key] = value;
+        }
+      }
+      return sanitized;
+    };
+
+    return {
+      ...log,
+      extraData: log.extraData ? sanitizeObject(log.extraData) : log.extraData,
+    };
+  }
+
+  /**
+   * Экспортировать логи в CSV формат
+   */
+  static async exportToCSV(filters: AuditLogFilters = {}): Promise<string> {
+    // Получаем все логи без пагинации
+    const allLogs = await this.getAuditLogs({
+      ...filters,
+      limit: 10000, // Максимум для экспорта
+      page: 1,
+    });
+
+    // CSV заголовки
+    const headers = [
+      'ID',
+      'Date',
+      'User ID',
+      'Action',
+      'Entity Type',
+      'Entity ID',
+      'Description',
+      'IP Address',
+      'Changes Count',
+    ];
+
+    // Формируем CSV строки
+    const rows = allLogs.logs.map(log => {
+      const changesCount = log.extraData?.changes?.length || 0;
+      return [
+        log.id,
+        new Date(log.createdAt).toISOString(),
+        log.userId || 'System',
+        log.action,
+        log.entityType,
+        log.entityId || '-',
+        `"${(log.description || '').replace(/"/g, '""')}"`, // Экранируем кавычки
+        log.ipAddress || '-',
+        changesCount,
+      ].join(',');
+    });
+
+    // Собираем CSV
+    const csv = [headers.join(','), ...rows].join('\n');
+    return csv;
   }
 }

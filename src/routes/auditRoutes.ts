@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { AuditService, AuditAction } from '../services/auditService';
-import { requireAuth } from '../middleware/authMiddleware';
+import { authenticateToken } from '../middleware/auth';
 import { requireAuditAccess, requireAdminForAudit } from '../middleware/auditMiddleware';
 
 const router = Router();
@@ -9,8 +9,19 @@ const router = Router();
  * GET /api/audit/logs
  * Получить список audit logs с фильтрацией
  * Доступ: admin, moderator
+ *
+ * Query параметры:
+ * - userId: фильтр по пользователю
+ * - action: фильтр по типу действия (create/update/delete/login/logout/access)
+ * - entityType: фильтр по типу сущности (book/chapter/block/user)
+ * - entityId: фильтр по ID сущности
+ * - startDate: начало периода (ISO 8601)
+ * - endDate: конец периода (ISO 8601)
+ * - search: поиск по описанию (case-insensitive)
+ * - page: номер страницы (по умолчанию 1)
+ * - limit: количество записей на странице (по умолчанию 50, максимум 100)
  */
-router.get('/logs', requireAuth, requireAuditAccess, async (req, res) => {
+router.get('/logs', authenticateToken, requireAuditAccess, async (req, res) => {
   try {
     const {
       userId,
@@ -19,6 +30,7 @@ router.get('/logs', requireAuth, requireAuditAccess, async (req, res) => {
       entityId,
       startDate,
       endDate,
+      search,
       page,
       limit,
     } = req.query;
@@ -30,6 +42,7 @@ router.get('/logs', requireAuth, requireAuditAccess, async (req, res) => {
       entityId: entityId as string,
       startDate: startDate ? new Date(startDate as string) : undefined,
       endDate: endDate ? new Date(endDate as string) : undefined,
+      search: search as string,
       page: page ? parseInt(page as string) : undefined,
       limit: limit ? parseInt(limit as string) : undefined,
     };
@@ -56,7 +69,7 @@ router.get('/logs', requireAuth, requireAuditAccess, async (req, res) => {
  * Получить историю изменений конкретной сущности
  * Доступ: admin, moderator
  */
-router.get('/logs/:entityType/:entityId', requireAuth, requireAuditAccess, async (req, res) => {
+router.get('/logs/:entityType/:entityId', authenticateToken, requireAuditAccess, async (req, res) => {
   try {
     const { entityType, entityId } = req.params;
     const { page, limit } = req.query;
@@ -88,7 +101,7 @@ router.get('/logs/:entityType/:entityId', requireAuth, requireAuditAccess, async
  * Запустить очистку старых логов (>6 месяцев)
  * Доступ: только admin
  */
-router.post('/cleanup', requireAuth, requireAdminForAudit, async (req, res) => {
+router.post('/cleanup', authenticateToken, requireAdminForAudit, async (req, res) => {
   try {
     const deletedCount = await AuditService.cleanupOldLogs();
 
@@ -112,7 +125,7 @@ router.post('/cleanup', requireAuth, requireAdminForAudit, async (req, res) => {
  * Навсегда удалить помеченные логи (>7 месяцев после soft delete)
  * Доступ: только admin
  */
-router.post('/permanent-delete', requireAuth, requireAdminForAudit, async (req, res) => {
+router.post('/permanent-delete', authenticateToken, requireAdminForAudit, async (req, res) => {
   try {
     const deletedCount = await AuditService.permanentlyDeleteOldLogs();
 
@@ -136,7 +149,7 @@ router.post('/permanent-delete', requireAuth, requireAdminForAudit, async (req, 
  * Получить статистику по audit logs
  * Доступ: admin, moderator
  */
-router.get('/stats', requireAuth, requireAuditAccess, async (req, res) => {
+router.get('/stats', authenticateToken, requireAuditAccess, async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
 
@@ -177,6 +190,58 @@ router.get('/stats', requireAuth, requireAuditAccess, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch audit stats',
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/audit/export
+ * Экспортировать audit logs в CSV файл
+ * Доступ: только admin
+ *
+ * Query параметры (те же что и для /logs):
+ * - userId, action, entityType, entityId, startDate, endDate, search
+ *
+ * Возвращает CSV файл для скачивания
+ */
+router.get('/export', authenticateToken, requireAdminForAudit, async (req, res) => {
+  try {
+    const {
+      userId,
+      action,
+      entityType,
+      entityId,
+      startDate,
+      endDate,
+      search,
+    } = req.query;
+
+    const filters = {
+      userId: userId as string,
+      action: action as AuditAction,
+      entityType: entityType as string,
+      entityId: entityId as string,
+      startDate: startDate ? new Date(startDate as string) : undefined,
+      endDate: endDate ? new Date(endDate as string) : undefined,
+      search: search as string,
+    };
+
+    const csv = await AuditService.exportToCSV(filters);
+
+    // Устанавливаем заголовки для скачивания файла
+    const filename = `audit_logs_${new Date().toISOString().split('T')[0]}.csv`;
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+    // Добавляем BOM для правильного отображения в Excel
+    res.write('\ufeff');
+    res.end(csv);
+  } catch (error: any) {
+    console.error('Error exporting audit logs:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to export audit logs',
       error: error.message,
     });
   }
