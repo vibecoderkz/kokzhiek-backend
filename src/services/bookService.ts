@@ -6,7 +6,9 @@ import { UserRole } from '../types/auth';
 export interface CreateBookInput {
   title: string;
   author?: string;
+  authors?: string[];
   class?: string;
+  grade?: number;
   description?: string;
   coverImageUrl?: string;
   isPublic?: boolean;
@@ -14,17 +16,31 @@ export interface CreateBookInput {
   settings?: Record<string, any>;
   ownerId: string;
   schoolId?: string;
+  isbn?: string;
+  year?: number;
+  publisher?: string;
+  edition?: string;
+  subject?: string;
+  language?: string;
 }
 
 export interface UpdateBookInput {
   title?: string;
   author?: string;
+  authors?: string[];
   class?: string;
+  grade?: number;
   description?: string;
   coverImageUrl?: string;
   isPublic?: boolean;
   visibility?: 'private' | 'school' | 'public';
   settings?: Record<string, any>;
+  isbn?: string;
+  year?: number;
+  publisher?: string;
+  edition?: string;
+  subject?: string;
+  language?: string;
 }
 
 export interface BookFilters {
@@ -41,7 +57,9 @@ export interface BookWithDetails {
   id: string;
   title: string;
   author: string | null;
+  authors?: any;
   class: string | null;
+  grade?: number | null;
   description: string | null;
   coverImageUrl: string | null;
   isPublic: boolean | null;
@@ -76,6 +94,12 @@ export interface BookWithDetails {
     canDelete: boolean;
     canShare: boolean;
   };
+  isbn?: string | null;
+  year?: number | null;
+  publisher?: string | null;
+  edition?: string | null;
+  subject?: string | null;
+  language?: string | null;
 }
 
 export class BookService {
@@ -83,7 +107,9 @@ export class BookService {
     const [book] = await db.insert(books).values({
       title: input.title,
       author: input.author,
+      authors: input.authors,
       class: input.class,
+      grade: input.grade,
       description: input.description,
       coverImageUrl: input.coverImageUrl,
       isPublic: input.isPublic || false,
@@ -91,6 +117,12 @@ export class BookService {
       settings: input.settings || {},
       ownerId: input.ownerId,
       schoolId: input.schoolId,
+      isbn: input.isbn,
+      year: input.year,
+      publisher: input.publisher,
+      edition: input.edition,
+      subject: input.subject,
+      language: input.language,
     }).returning();
 
     return this.getBookById(book.id, input.ownerId);
@@ -109,16 +141,7 @@ export class BookService {
     const limit = Math.min(filters.limit || 10, 50);
     const offset = (page - 1) * limit;
 
-    let whereConditions: any[] = [
-      or(
-        eq(books.ownerId, userId),
-        sql`EXISTS (
-          SELECT 1 FROM ${bookCollaborators}
-          WHERE ${bookCollaborators.bookId} = ${books.id}
-          AND ${bookCollaborators.userId} = ${userId}
-        )`
-      )
-    ];
+    let whereConditions: any[] = [];
 
     if (filters.search) {
       whereConditions.push(
@@ -178,9 +201,11 @@ export class BookService {
         id: row.book.id,
         title: row.book.title,
         author: row.book.author,
+        authors: row.book.authors,
         class: row.book.class,
+        grade: row.book.grade,
         description: row.book.description,
-        coverImageUrl: row.book.coverImageUrl,
+        coverImageUrl: null, // Не отправляем base64 изображения для списка книг (оптимизация)
         isPublic: row.book.isPublic,
         visibility: row.book.visibility,
         settings: row.book.settings,
@@ -193,6 +218,13 @@ export class BookService {
           canDelete: row.book.ownerId === userId,
           canShare: row.book.ownerId === userId,
         },
+        // Метаданные
+        isbn: row.book.isbn,
+        year: row.book.year,
+        publisher: row.book.publisher,
+        edition: row.book.edition,
+        subject: row.book.subject,
+        language: row.book.language,
       }));
 
     return {
@@ -283,7 +315,9 @@ export class BookService {
       id: bookData.book.id,
       title: bookData.book.title,
       author: bookData.book.author,
+      authors: bookData.book.authors,
       class: bookData.book.class,
+      grade: bookData.book.grade,
       description: bookData.book.description,
       coverImageUrl: bookData.book.coverImageUrl,
       isPublic: bookData.book.isPublic,
@@ -306,6 +340,12 @@ export class BookService {
         canDelete: isOwner,
         canShare: isOwner,
       },
+      isbn: bookData.book.isbn,
+      year: bookData.book.year,
+      publisher: bookData.book.publisher,
+      edition: bookData.book.edition,
+      subject: bookData.book.subject,
+      language: bookData.book.language,
     };
   }
 
@@ -379,7 +419,9 @@ export class BookService {
       id: book.id,
       title: book.title,
       author: book.author,
+      authors: book.authors,
       class: book.class,
+      grade: book.grade,
       description: book.description,
       coverImageUrl: book.coverImageUrl,
       isPublic: book.isPublic,
@@ -394,6 +436,12 @@ export class BookService {
         canDelete: false,
         canShare: false,
       },
+      isbn: book.isbn,
+      year: book.year,
+      publisher: book.publisher,
+      edition: book.edition,
+      subject: book.subject,
+      language: book.language,
     };
   }
 
