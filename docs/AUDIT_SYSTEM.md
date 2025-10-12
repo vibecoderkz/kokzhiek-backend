@@ -68,6 +68,7 @@ CREATE TABLE audit_logs (
 - `entityId` - фильтр по ID сущности
 - `startDate` - начало периода (ISO 8601)
 - `endDate` - конец периода (ISO 8601)
+- `search` - поиск по тексту описания (case-insensitive)
 - `page` - номер страницы (по умолчанию 1)
 - `limit` - количество записей на странице (по умолчанию 50, максимум 100)
 
@@ -202,6 +203,79 @@ curl -X POST -H "Authorization: Bearer ADMIN_TOKEN" \
   }
 }
 ```
+
+### 6. Экспортировать логи в CSV файл
+
+**GET** `/api/audit/export`
+
+**Права доступа:** только admin
+
+**Описание:** Экспортирует audit logs в CSV файл для скачивания. Поддерживает все те же фильтры что и `/api/audit/logs`. Максимум 10000 записей.
+
+**Query параметры:**
+- `userId` - фильтр по пользователю
+- `action` - фильтр по типу действия
+- `entityType` - фильтр по типу сущности
+- `entityId` - фильтр по ID сущности
+- `startDate` - начало периода (ISO 8601)
+- `endDate` - конец периода (ISO 8601)
+- `search` - поиск по описанию
+
+**Формат CSV:**
+```
+ID,Date,User ID,Action,Entity Type,Entity ID,Description,IP Address,Changes Count
+uuid,2025-10-12T20:00:00Z,user-uuid,update,book,book-uuid,"Updated book...",127.0.0.1,2
+```
+
+**Пример запроса:**
+```bash
+# Экспорт всех логов по книгам за последний месяц
+curl -H "Authorization: Bearer ADMIN_TOKEN" \
+  "http://localhost:3000/api/audit/export?entityType=book&startDate=2025-09-13T00:00:00Z" \
+  -o audit_logs.csv
+
+# Экспорт логов с поиском
+curl -H "Authorization: Bearer ADMIN_TOKEN" \
+  "http://localhost:3000/api/audit/export?search=Updated+book" \
+  -o audit_logs.csv
+```
+
+**Особенности:**
+- CSV файл содержит BOM (Byte Order Mark) для корректного отображения в Excel
+- Имя файла: `audit_logs_YYYY-MM-DD.csv`
+- Кодировка: UTF-8
+- Разделитель: запятая
+- Личные данные (пароли, токены) скрыты как `[REDACTED]`
+
+## Защита личных данных
+
+Система автоматически скрывает чувствительные данные в audit logs:
+
+**Скрываемые поля:**
+- `passwordHash`
+- `password`
+- `emailVerificationToken`
+- `passwordResetToken`
+- `tokenHash`
+- `token`
+
+**Пример:**
+```json
+{
+  "extraData": {
+    "oldValue": {
+      "email": "user@example.com",
+      "passwordHash": "[REDACTED]"
+    },
+    "newValue": {
+      "email": "newemail@example.com",
+      "passwordHash": "[REDACTED]"
+    }
+  }
+}
+```
+
+Очистка применяется рекурсивно ко всем вложенным объектам в `extraData`.
 
 ## Использование в коде
 
