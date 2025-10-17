@@ -6,12 +6,20 @@ import { eq, or, and, like, ilike, sql } from 'drizzle-orm';
 
 const router = Router();
 
+// Extend Request type to include user from auth middleware
+interface AuthRequest extends Request {
+  user?: {
+    userId: string;
+    role: string;
+  };
+}
+
 /**
  * Global search endpoint
  * Searches across books, chapters, and blocks
  * GET /api/search?q=query&limit=10&type=all
  */
-router.get('/', authenticateToken, async (req: Request, res: Response): Promise<void> => {
+router.get('/', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const query = (req.query.q as string) || '';
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
@@ -46,7 +54,7 @@ router.get('/', authenticateToken, async (req: Request, res: Response): Promise<
           title: books.title,
           description: books.description,
           author: books.author,
-          class: books.class,
+          grade: books.grade,
           coverImageUrl: books.coverImageUrl,
           ownerId: books.ownerId,
           ownerEmail: users.email,
@@ -76,7 +84,7 @@ router.get('/', authenticateToken, async (req: Request, res: Response): Promise<
         title: book.title,
         description: book.description,
         author: book.author,
-        class: book.class,
+        grade: book.grade,
         coverImageUrl: book.coverImageUrl,
         ownerId: book.ownerId,
         ownerEmail: book.ownerEmail,

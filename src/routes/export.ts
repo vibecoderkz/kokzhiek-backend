@@ -7,11 +7,19 @@ import { Document, Paragraph, TextRun, HeadingLevel, Packer } from 'docx';
 
 const router = Router();
 
+// Extend Request type to include user from auth middleware
+interface AuthRequest extends Request {
+  user?: {
+    userId: string;
+    role: string;
+  };
+}
+
 /**
  * Export book to HTML
  * GET /api/export/book/:bookId/html
  */
-router.get('/book/:bookId/html', authenticateToken, async (req: Request, res: Response): Promise<void> => {
+router.get('/book/:bookId/html', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { bookId } = req.params;
     const userId = req.user?.userId;
@@ -76,7 +84,7 @@ router.get('/book/:bookId/html', authenticateToken, async (req: Request, res: Re
  * Export book to DOCX
  * GET /api/export/book/:bookId/docx
  */
-router.get('/book/:bookId/docx', authenticateToken, async (req: Request, res: Response): Promise<void> => {
+router.get('/book/:bookId/docx', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { bookId } = req.params;
     const userId = req.user?.userId;
@@ -141,7 +149,7 @@ router.get('/book/:bookId/docx', authenticateToken, async (req: Request, res: Re
  * Export book metadata (for PDF generation on frontend)
  * GET /api/export/book/:bookId/data
  */
-router.get('/book/:bookId/data', authenticateToken, async (req: Request, res: Response): Promise<void> => {
+router.get('/book/:bookId/data', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { bookId } = req.params;
     const userId = req.user?.userId;
@@ -267,7 +275,7 @@ function generateHTML(book: any, chapters: any[]): string {
   <div class="metadata">`;
 
   if (book.author) html += `<p><strong>Автор:</strong> ${escapeHtml(book.author)}</p>`;
-  if (book.class) html += `<p><strong>Класс:</strong> ${escapeHtml(book.class)}</p>`;
+  if (book.grade) html += `<p><strong>Класс:</strong> ${book.grade}</p>`;
   if (book.description) html += `<p><strong>Описание:</strong> ${escapeHtml(book.description)}</p>`;
 
   html += `  </div>\n`;
@@ -332,12 +340,12 @@ async function generateDOCX(book: any, chapters: any[]): Promise<Uint8Array> {
     );
   }
 
-  if (book.class) {
+  if (book.grade) {
     docChildren.push(
       new Paragraph({
         children: [
           new TextRun({ text: 'Класс: ', bold: true }),
-          new TextRun(book.class)
+          new TextRun(String(book.grade))
         ],
         spacing: { after: 100 }
       })
