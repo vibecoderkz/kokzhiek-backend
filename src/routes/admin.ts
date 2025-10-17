@@ -1311,14 +1311,63 @@ router.get('/books',
         .limit(limit)
         .offset((page - 1) * limit);
 
+      // Enrich books with chapter count and audit log info
+      const { chapters, auditLogs } = await import('../models/schema');
+      const enrichedBooks = await Promise.all(
+        booksList.map(async (book) => {
+          // Count chapters for this book
+          const [chapterCount] = await db
+            .select({ count: count() })
+            .from(chapters)
+            .where(eq(chapters.bookId, book.id));
+
+          // Get last audit log for this book
+          const [lastAudit] = await db
+            .select({
+              action: auditLogs.action,
+              description: auditLogs.description,
+              createdAt: auditLogs.createdAt,
+              userId: auditLogs.userId,
+            })
+            .from(auditLogs)
+            .where(
+              eq(auditLogs.entityId, book.id)
+            )
+            .orderBy(desc(auditLogs.createdAt))
+            .limit(1);
+
+          // Get editor info if audit log exists
+          let lastEditorEmail = null;
+          if (lastAudit && lastAudit.userId) {
+            const [editor] = await db
+              .select({ email: users.email })
+              .from(users)
+              .where(eq(users.id, lastAudit.userId))
+              .limit(1);
+            lastEditorEmail = editor?.email || null;
+          }
+
+          return {
+            ...book,
+            lastEditedAt: lastAudit?.createdAt || book.updatedAt,
+            lastEditAction: lastAudit?.action || null,
+            lastEditDescription: lastAudit?.description || null,
+            lastEditedBy: lastAudit?.userId || null,
+            lastEditorEmail,
+            chaptersCount: chapterCount.count || 0
+          };
+        })
+      );
+
       res.json({
         success: true,
         message: 'Books retrieved successfully',
         data: {
-          books: booksList,
+          books: enrichedBooks,
           total: totalResult.count,
           page,
-          limit
+          limit,
+          totalPages: Math.ceil(totalResult.count / limit)
         }
       });
     } catch (error) {

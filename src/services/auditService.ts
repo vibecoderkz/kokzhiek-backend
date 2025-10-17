@@ -234,8 +234,44 @@ export class AuditService {
       .from(auditLogs)
       .where(and(...conditions));
 
+    // Обогащаем логи данными о пользователях и книгах
+    const { users, books } = await import('../models/schema');
+    const enrichedLogs = await Promise.all(
+      logs.map(async (log) => {
+        let userEmail = null;
+        let entityName = null;
+
+        if (log.userId) {
+          const [user] = await db
+            .select({ email: users.email })
+            .from(users)
+            .where(eq(users.id, log.userId))
+            .limit(1);
+
+          userEmail = user?.email || null;
+        }
+
+        // Добавляем название для книг
+        if (log.entityType === 'book' && log.entityId) {
+          const [book] = await db
+            .select({ title: books.title })
+            .from(books)
+            .where(eq(books.id, log.entityId))
+            .limit(1);
+
+          entityName = book?.title || null;
+        }
+
+        return {
+          ...log,
+          userEmail,
+          entityName,
+        };
+      })
+    );
+
     // Скрываем личные данные из extraData
-    const sanitizedLogs = logs.map(log => this.sanitizeLog(log));
+    const sanitizedLogs = enrichedLogs.map(log => this.sanitizeLog(log));
 
     return {
       logs: sanitizedLogs,

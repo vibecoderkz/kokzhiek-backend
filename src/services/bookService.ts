@@ -7,7 +7,6 @@ export interface CreateBookInput {
   title: string;
   author?: string;
   authors?: string[];
-  class?: string;
   grade?: number;
   description?: string;
   coverImageUrl?: string;
@@ -28,7 +27,6 @@ export interface UpdateBookInput {
   title?: string;
   author?: string;
   authors?: string[];
-  class?: string;
   grade?: number;
   description?: string;
   coverImageUrl?: string;
@@ -58,7 +56,6 @@ export interface BookWithDetails {
   title: string;
   author: string | null;
   authors?: any;
-  class: string | null;
   grade?: number | null;
   description: string | null;
   coverImageUrl: string | null;
@@ -108,7 +105,6 @@ export class BookService {
       title: input.title,
       author: input.author,
       authors: input.authors,
-      class: input.class,
       grade: input.grade,
       description: input.description,
       coverImageUrl: input.coverImageUrl,
@@ -202,7 +198,6 @@ export class BookService {
         title: row.book.title,
         author: row.book.author,
         authors: row.book.authors,
-        class: row.book.class,
         grade: row.book.grade,
         description: row.book.description,
         coverImageUrl: null, // Не отправляем base64 изображения для списка книг (оптимизация)
@@ -316,7 +311,6 @@ export class BookService {
       title: bookData.book.title,
       author: bookData.book.author,
       authors: bookData.book.authors,
-      class: bookData.book.class,
       grade: bookData.book.grade,
       description: bookData.book.description,
       coverImageUrl: bookData.book.coverImageUrl,
@@ -356,6 +350,17 @@ export class BookService {
       throw new Error('Access denied');
     }
 
+    // Get old book data for audit log
+    const [oldBook] = await db
+      .select()
+      .from(books)
+      .where(eq(books.id, bookId))
+      .limit(1);
+
+    if (!oldBook) {
+      throw new Error('Book not found');
+    }
+
     const [updatedBook] = await db
       .update(books)
       .set({
@@ -368,6 +373,50 @@ export class BookService {
     if (!updatedBook) {
       throw new Error('Book not found');
     }
+
+    // Log the update to audit logs
+    const { AuditService } = await import('./auditService');
+
+    // Create description based on what changed
+    let description = 'Updated book';
+    const changedFields: string[] = [];
+
+    if (input.title && input.title !== oldBook.title) {
+      changedFields.push('title');
+      description = `Updated book title from "${oldBook.title}" to "${input.title}"`;
+    }
+    if (input.description !== undefined && input.description !== oldBook.description) {
+      changedFields.push('description');
+      if (changedFields.length === 1) description = 'Updated book description';
+    }
+    if (input.author !== undefined && input.author !== oldBook.author) {
+      changedFields.push('author');
+      if (changedFields.length === 1) description = `Updated book author to "${input.author}"`;
+    }
+    if (input.grade !== undefined && input.grade !== oldBook.grade) {
+      changedFields.push('grade');
+      if (changedFields.length === 1) description = `Updated book grade to ${input.grade}`;
+    }
+    if (input.coverImageUrl !== undefined && input.coverImageUrl !== oldBook.coverImageUrl) {
+      changedFields.push('coverImageUrl');
+      if (changedFields.length === 1) description = 'Updated book cover image';
+    }
+    if (input.settings !== undefined) {
+      changedFields.push('settings');
+      if (changedFields.length === 1) description = 'Updated book settings';
+    }
+
+    if (changedFields.length > 1) {
+      description = `Updated book: ${changedFields.join(', ')}`;
+    }
+
+    await AuditService.logUpdate(
+      userId,
+      'book',
+      bookId,
+      oldBook,
+      updatedBook
+    );
 
     return this.getBookById(bookId, userId);
   }
@@ -420,7 +469,6 @@ export class BookService {
       title: book.title,
       author: book.author,
       authors: book.authors,
-      class: book.class,
       grade: book.grade,
       description: book.description,
       coverImageUrl: book.coverImageUrl,

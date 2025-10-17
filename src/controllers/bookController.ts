@@ -6,8 +6,7 @@ const CreateBookSchema = z.object({
   title: z.string().min(1, 'Title is required').max(255, 'Title must be less than 255 characters'),
   author: z.string().optional(), // legacy field
   authors: z.array(z.string()).optional(), // NEW: array of authors
-  class: z.string().max(10, 'Class must be less than 10 characters').optional(), // legacy
-  grade: z.number().int().min(1).max(11).optional(), // NEW: grade (1-11)
+  grade: z.number().int().min(1).max(11).optional(), // grade (1-11)
   description: z.string().optional(),
   coverImageUrl: z.string().optional(), // Removed URL validation to allow base64
   isPublic: z.boolean().optional(),
@@ -26,8 +25,7 @@ const UpdateBookSchema = z.object({
   title: z.string().min(1, 'Title is required').max(255, 'Title must be less than 255 characters').optional(),
   author: z.string().optional(), // legacy field
   authors: z.array(z.string()).optional(), // NEW: array of authors
-  class: z.string().max(10, 'Class must be less than 10 characters').optional(), // legacy
-  grade: z.number().int().min(1).max(11).optional(), // NEW: grade (1-11)
+  grade: z.number().int().min(1).max(11).optional(), // grade (1-11)
   description: z.string().optional(),
   coverImageUrl: z.string().optional(), // Removed URL validation to allow base64
   isPublic: z.boolean().optional(),
