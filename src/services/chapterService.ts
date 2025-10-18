@@ -168,11 +168,17 @@ export class ChapterService {
   }
 
   static async updateChapter(chapterId: string, input: UpdateChapterInput, userId: string): Promise<ChapterWithBlocks> {
-    // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(chapterId)) {
-      throw new Error('Invalid chapter ID format. Please create chapter first.');
+    // Basic validation - just ensure the ID is not empty and reasonable length
+    if (!chapterId || chapterId.trim().length === 0) {
+      throw new Error('Chapter ID is required');
     }
+    
+    if (chapterId.length > 255) {
+      throw new Error('Chapter ID is too long');
+    }
+    
+    // Allow both UUID format and custom chapter IDs for backward compatibility
+    // Remove strict UUID validation to support legacy chapter IDs
 
     // Get chapter to check book access
     const chapter = await db.query.chapters.findFirst({
@@ -366,5 +372,79 @@ export class ChapterService {
           sql`${chapters.position} > ${deletedPosition}`
         )
       );
+  }
+
+  /**
+   * Duplicate a chapter with all its blocks
+   */
+  static async duplicateChapter(chapterId: string, userId: string): Promise<ChapterWithBlocks> {
+    // Get original chapter with blocks
+    const originalChapter = await this.getChapterById(chapterId, userId);
+
+    if (!originalChapter) {
+      throw new Error('Chapter not found');
+    }
+
+    // Get the book to check access
+    const [book] = await db
+      .select()
+      .from(books)
+      .where(eq(books.id, originalChapter.book.id));
+
+    if (!book) {
+      throw new Error('Book not found');
+    }
+
+    // Check if user has access to the book
+    const hasAccess = await this.canUserAccessBook(book.id, userId);
+    if (!hasAccess) {
+      throw new Error('Access denied');
+    }
+
+    // Get max position for new chapter
+    const [maxPos] = await db
+      .select({ maxPosition: max(chapters.position) })
+      .from(chapters)
+      .where(eq(chapters.bookId, book.id));
+
+    const newPosition = (maxPos.maxPosition ?? -1) + 1;
+
+    // Create new chapter
+    const [newChapter] = await db
+      .insert(chapters)
+      .values({
+        bookId: book.id,
+        title: `${originalChapter.title} (копия)`,
+        description: originalChapter.description,
+        position: newPosition,
+        settings: originalChapter.settings,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+
+    // Duplicate all blocks
+    if (originalChapter.blocks && originalChapter.blocks.length > 0) {
+      const newBlocks = originalChapter.blocks.map((block) => ({
+        chapterId: newChapter.id,
+        type: block.type,
+        content: block.content,
+        style: block.style,
+        position: block.position,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }));
+
+      await db.insert(blocks).values(newBlocks);
+    }
+
+    // Get the full new chapter with blocks
+    const duplicatedChapter = await this.getChapterById(newChapter.id, userId);
+
+    if (!duplicatedChapter) {
+      throw new Error('Failed to retrieve duplicated chapter');
+    }
+
+    return duplicatedChapter;
   }
 }

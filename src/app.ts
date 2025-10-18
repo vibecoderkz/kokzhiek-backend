@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
+import path from 'path';
 
 import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
@@ -14,6 +15,7 @@ import publicRoutes from './routes/public';
 import exportRoutes from './routes/export';
 import searchRoutes from './routes/search';
 import auditRoutes from './routes/auditRoutes';
+import uploadRoutes from './routes/upload';
 import { errorHandler } from './middleware/errorHandler';
 import { setupSwagger } from './config/swagger';
 
@@ -21,6 +23,9 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Trust proxy for proper IP detection behind load balancers/proxies
+app.set('trust proxy', true);
 
 app.use(helmet());
 
@@ -60,6 +65,9 @@ app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// Serve uploaded files statically
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 // Setup Swagger documentation
 setupSwagger(app);
 
@@ -96,6 +104,7 @@ app.use('/api/public', publicRoutes);
 app.use('/api/export', exportRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/audit', auditRoutes);
+app.use('/api/upload', uploadRoutes);
 
 app.use('*', (req, res) => {
   res.status(404).json({

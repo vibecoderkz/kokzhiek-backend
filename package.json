@@ -26,6 +26,7 @@
     "@types/swagger-ui-express": "^4.1.8",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
+    "docx": "^9.5.1",
     "dotenv": "^16.6.1",
     "drizzle-kit": "^0.20.0",
     "drizzle-orm": "^0.29.0",

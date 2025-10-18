@@ -310,6 +310,31 @@ router.put('/:chapterId/reorder', authenticateToken, chapterController.reorderCh
 
 /**
  * @swagger
+ * /api/chapters/{chapterId}/duplicate:
+ *   post:
+ *     summary: Duplicate a chapter with all blocks
+ *     tags: [Chapters]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: chapterId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Chapter ID to duplicate
+ *     responses:
+ *       201:
+ *         description: Chapter duplicated successfully
+ *       404:
+ *         description: Chapter not found
+ *       403:
+ *         description: Access denied
+ */
+router.post('/:chapterId/duplicate', authenticateToken, chapterController.duplicateChapter.bind(chapterController));
+
+/**
+ * @swagger
  * /api/chapters/{chapterId}/blocks:
  *   post:
  *     summary: Create a new block in a chapter

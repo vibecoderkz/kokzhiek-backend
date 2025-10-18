@@ -1,25 +1,17 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import { db } from '../config/database';
 import { books, chapters, blocks, users } from '../models/schema';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
 import { eq, desc } from 'drizzle-orm';
 import { Document, Paragraph, TextRun, HeadingLevel, Packer } from 'docx';
 
 const router = Router();
 
-// Extend Request type to include user from auth middleware
-interface AuthRequest extends Request {
-  user?: {
-    userId: string;
-    role: string;
-  };
-}
-
 /**
  * Export book to HTML
  * GET /api/export/book/:bookId/html
  */
-router.get('/book/:bookId/html', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/book/:bookId/html', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const { bookId } = req.params;
     const userId = req.user?.userId;
@@ -84,7 +76,7 @@ router.get('/book/:bookId/html', authenticateToken, async (req: AuthRequest, res
  * Export book to DOCX
  * GET /api/export/book/:bookId/docx
  */
-router.get('/book/:bookId/docx', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/book/:bookId/docx', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const { bookId } = req.params;
     const userId = req.user?.userId;
@@ -149,7 +141,7 @@ router.get('/book/:bookId/docx', authenticateToken, async (req: AuthRequest, res
  * Export book metadata (for PDF generation on frontend)
  * GET /api/export/book/:bookId/data
  */
-router.get('/book/:bookId/data', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/book/:bookId/data', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const { bookId } = req.params;
     const userId = req.user?.userId;

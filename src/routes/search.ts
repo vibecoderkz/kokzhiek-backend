@@ -1,25 +1,17 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import { db } from '../config/database';
 import { books, chapters, blocks, users } from '../models/schema';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
 import { eq, or, and, like, ilike, sql } from 'drizzle-orm';
 
 const router = Router();
-
-// Extend Request type to include user from auth middleware
-interface AuthRequest extends Request {
-  user?: {
-    userId: string;
-    role: string;
-  };
-}
 
 /**
  * Global search endpoint
  * Searches across books, chapters, and blocks
  * GET /api/search?q=query&limit=10&type=all
  */
-router.get('/', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const query = (req.query.q as string) || '';
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);

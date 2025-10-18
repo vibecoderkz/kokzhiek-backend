@@ -94,10 +94,22 @@ export class BookController {
 
   async getUserBooks(req: Request, res: Response): Promise<void> {
     try {
+      console.log('📚 GET /api/books - запрос получен');
+      console.log('Headers:', req.headers);
+      console.log('Query params:', req.query);
+
       const filters = BookFiltersSchema.parse(req.query);
       const userId = (req as any).user.userId;
 
+      console.log('User ID:', userId);
+      console.log('Filters:', filters);
+
       const result = await BookService.getUserBooks(userId, filters);
+
+      console.log('📚 Найдено книг в БД:', result.books.length);
+      if (result.books.length > 0) {
+        console.log('📚 Первая книга:', result.books[0]);
+      }
 
       res.json({
         success: true,
@@ -105,6 +117,7 @@ export class BookController {
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error('❌ Validation error:', error.errors);
         res.status(400).json({
           success: false,
           error: {
@@ -116,7 +129,7 @@ export class BookController {
         return;
       }
 
-      console.error('Error fetching books:', error);
+      console.error('❌ Error fetching books:', error);
       res.status(500).json({
         success: false,
         error: {
@@ -177,10 +190,33 @@ export class BookController {
   async updateBook(req: Request, res: Response): Promise<void> {
     try {
       const { bookId } = req.params;
+      
+      // 🔍 DEBUG: Входящие данные
+      console.log('=== BOOK UPDATE DEBUG ===');
+      console.log('📥 [BookController] Получены данные:', {
+        bookId,
+        bodyKeys: Object.keys(req.body),
+        bodyData: {
+          ...req.body,
+          coverImageUrl: req.body.coverImageUrl ? 
+            `[base64 length: ${req.body.coverImageUrl.length}]` : 
+            req.body.coverImageUrl
+        }
+      });
+      
       const validatedData = UpdateBookSchema.parse(req.body);
+      console.log('✅ [BookController] Валидация прошла успешно:', {
+        ...validatedData,
+        coverImageUrl: validatedData.coverImageUrl ? 
+          `[base64 length: ${validatedData.coverImageUrl.length}]` : 
+          validatedData.coverImageUrl
+      });
+      
       const userId = (req as any).user.userId;
+      console.log('👤 [BookController] User ID:', userId);
 
       const book = await BookService.updateBook(bookId, userId, validatedData);
+      console.log('💾 [BookController] Книга обновлена в сервисе');
 
       res.json({
         success: true,

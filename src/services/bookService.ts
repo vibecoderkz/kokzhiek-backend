@@ -344,11 +344,44 @@ export class BookService {
   }
 
   static async updateBook(bookId: string, userId: string, input: UpdateBookInput): Promise<BookWithDetails> {
+    // 🔍 DEBUG: Входящие данные в сервис
+    console.log('📥 [BookService/updateBook] Получены данные:', {
+      bookId,
+      userId,
+      inputKeys: Object.keys(input),
+      input: {
+        ...input,
+        coverImageUrl: input.coverImageUrl ? 
+          `[base64 length: ${input.coverImageUrl.length}]` : 
+          input.coverImageUrl
+      }
+    });
+
     // Check if user can edit this book
     const canEdit = await this.canUserEditBook(bookId, userId);
     if (!canEdit) {
       throw new Error('Access denied');
     }
+    console.log('✅ [BookService/updateBook] Права проверены - пользователь может редактировать');
+
+    // Подготавливаем данные для обновления
+    const updateData = {
+      ...input,
+      updatedAt: new Date(),
+    };
+    
+    console.log('🔧 [BookService/updateBook] Подготавливаем данные для обновления:', {
+      fieldsCount: Object.keys(updateData).length,
+      hasTitle: !!updateData.title,
+      hasAuthors: !!updateData.authors,
+      hasISBN: !!updateData.isbn,
+      hasYear: !!updateData.year,
+      hasPublisher: !!updateData.publisher,
+      hasEdition: !!updateData.edition,
+      hasSubject: !!updateData.subject,
+      hasGrade: !!updateData.grade,
+      hasCoverImage: !!updateData.coverImageUrl
+    });
 
     // Get old book data for audit log
     const [oldBook] = await db
@@ -363,12 +396,16 @@ export class BookService {
 
     const [updatedBook] = await db
       .update(books)
-      .set({
-        ...input,
-        updatedAt: new Date(),
-      })
+      .set(updateData)
       .where(eq(books.id, bookId))
       .returning();
+
+    console.log('💾 [BookService/updateBook] Результат обновления в БД:', {
+      success: !!updatedBook,
+      updatedBookId: updatedBook?.id,
+      hasTitle: !!updatedBook?.title,
+      hasMetadata: !!(updatedBook?.isbn || updatedBook?.year || updatedBook?.publisher)
+    });
 
     if (!updatedBook) {
       throw new Error('Book not found');
@@ -418,6 +455,7 @@ export class BookService {
       updatedBook
     );
 
+    console.log('🔄 [BookService/updateBook] Получаем обновленную книгу...');
     return this.getBookById(bookId, userId);
   }
 

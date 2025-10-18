@@ -320,4 +320,55 @@ export class ChapterController {
       });
     }
   }
+
+  /**
+   * Duplicate a chapter with all blocks
+   */
+  async duplicateChapter(req: Request, res: Response): Promise<void> {
+    try {
+      const { chapterId } = req.params;
+      const userId = (req as any).user.userId;
+
+      const newChapter = await ChapterService.duplicateChapter(chapterId, userId);
+
+      res.status(201).json({
+        success: true,
+        message: 'Chapter duplicated successfully',
+        data: { chapter: newChapter },
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message === 'Chapter not found') {
+          res.status(404).json({
+            success: false,
+            error: {
+              code: 'NOT_FOUND',
+              message: 'Chapter not found',
+            },
+          });
+          return;
+        }
+
+        if (error.message === 'Access denied') {
+          res.status(403).json({
+            success: false,
+            error: {
+              code: 'FORBIDDEN',
+              message: 'Access denied',
+            },
+          });
+          return;
+        }
+      }
+
+      console.error('Error duplicating chapter:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to duplicate chapter',
+        },
+      });
+    }
+  }
 }

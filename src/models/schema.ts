@@ -74,6 +74,10 @@ export const books = pgTable('books', {
   edition: varchar('edition', { length: 100 }),
   subject: varchar('subject', { length: 100 }),
   language: varchar('language', { length: 10 }).default('kz'),
+  // Missing fields that exist in database
+  lastEditedBy: uuid('last_edited_by'),
+  lastEditedAt: timestamp('last_edited_at', { withTimezone: true }),
+  lastEditAction: text('last_edit_action'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 });

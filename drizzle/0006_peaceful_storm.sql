@@ -1,0 +1,1 @@
+ALTER TABLE "books" ALTER COLUMN "last_edit_action" SET DATA TYPE text;
