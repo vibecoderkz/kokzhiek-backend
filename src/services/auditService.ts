@@ -103,8 +103,8 @@ export class AuditService {
     // Вычисляем изменения
     const changes = this.calculateChanges(oldValue, newValue);
 
-    // Переводим entityType на русский
-    const entityTypeRu = entityType === 'book' ? 'книгу' : entityType;
+    // Переводим entityType на русский (именительный падеж)
+    const entityTypeRu = entityType === 'book' ? 'книга' : entityType;
 
     // Получаем название для книги
     const entityName = entityType === 'book' && (newValue?.title || oldValue?.title)
