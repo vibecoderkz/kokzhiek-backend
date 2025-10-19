@@ -103,27 +103,25 @@ export class AuditService {
     // Вычисляем изменения
     const changes = this.calculateChanges(oldValue, newValue);
 
-    // Переводим entityType на русский (именительный падеж)
-    const entityTypeRu = entityType === 'book' ? 'книга' : entityType;
-
-    // Получаем название для книги
-    const entityName = entityType === 'book' && (newValue?.title || oldValue?.title)
-      ? `"${newValue?.title || oldValue?.title}"`
-      : entityId;
-
-    // Формируем описание изменённых полей
+    // Формируем описание изменённых полей (БЕЗ названия книги)
     let description: string;
     if (changes.length === 0) {
-      description = `Обновлена ${entityTypeRu} ${entityName}`;
+      description = `Обновлена книга`;
+    } else if (changes.length === 1) {
+      // Одно поле - просто говорим что изменено
+      description = this.getChangedVerb(changes[0].field);
     } else if (changes.length <= 3) {
-      // Если полей мало, перечисляем их
-      const fieldNames = changes.map(c => this.translateFieldName(c.field)).join(', ');
-      description = `Обновлена ${entityTypeRu} ${entityName}: ${fieldNames}`;
+      // 2-3 поля - перечисляем их
+      const fieldNames = changes.map(c => this.getChangedVerb(c.field)).join(', ');
+      description = fieldNames;
     } else {
-      // Если полей много, указываем количество
+      // Много полей - указываем количество
       const fieldsWord = changes.length < 5 ? 'поля' : 'полей';
-      description = `Обновлена ${entityTypeRu} ${entityName}: ${changes.length} ${fieldsWord}`;
+      description = `Изменено ${changes.length} ${fieldsWord}`;
     }
+
+    // Делаем первую букву заглавной
+    description = description.charAt(0).toUpperCase() + description.slice(1);
 
     await this.log({
       userId,
@@ -433,6 +431,44 @@ export class AuditService {
     };
 
     return translations[fieldName] || fieldName;
+  }
+
+  /**
+   * Получить правильную форму глагола "изменён" для поля
+   */
+  private static getChangedVerb(fieldName: string): string {
+    const russianName = this.translateFieldName(fieldName);
+
+    // Определяем род по окончанию русского названия
+    // Мужской род (изменён): автор, класс, год, предмет, язык, владелец
+    const masculineEndings = ['р', 'с', 'д', 't', 'к', 'ц'];
+    // Женский род (изменена): обложка, публичность, видимость, школа
+    const feminineEndings = ['а', 'я', 'ь', 'ость'];
+    // Средний род (изменено): название, описание, издание, издательство
+    const neuterEndings = ['о', 'е', 'ие', 'во'];
+
+    const lastChar = russianName[russianName.length - 1];
+    const lastTwoChars = russianName.slice(-2);
+    const lastFourChars = russianName.slice(-4);
+
+    // Проверяем специальные случаи
+    if (lastFourChars === 'ость') {
+      return `изменена ${russianName}`;
+    }
+    if (lastTwoChars === 'ие' || lastTwoChars === 'во') {
+      return `изменено ${russianName}`;
+    }
+
+    // Проверяем по последней букве
+    if (feminineEndings.includes(lastChar)) {
+      return `изменена ${russianName}`;
+    }
+    if (neuterEndings.includes(lastChar)) {
+      return `изменено ${russianName}`;
+    }
+
+    // По умолчанию мужской род
+    return `изменён ${russianName}`;
   }
 
   /**

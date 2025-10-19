@@ -1212,7 +1212,7 @@ router.get('/users',
  * @swagger
  * /api/admin/books:
  *   get:
- *     summary: Get all books with filtering and pagination
+ *     summary: Get all books with filtering, sorting and pagination
  *     tags: [Admin - Books]
  *     security:
  *       - bearerAuth: []
@@ -1237,6 +1237,30 @@ router.get('/users',
  *         schema:
  *           type: string
  *         description: Search by book title or author
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [title, author, createdAt, updatedAt, ownerEmail]
+ *           default: createdAt
+ *         description: Field to sort by
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: desc
+ *         description: Sort direction
+ *       - in: query
+ *         name: ownerId
+ *         schema:
+ *           type: string
+ *         description: Filter by owner ID
+ *       - in: query
+ *         name: isPublic
+ *         schema:
+ *           type: boolean
+ *         description: Filter by public/private status
  *     responses:
  *       200:
  *         description: Books retrieved successfully
@@ -1253,10 +1277,14 @@ router.get('/books',
       const page = parseInt(req.query.page as string) || 1;
       const limit = Math.min(parseInt(req.query.limit as string) || 10, 100);
       const search = req.query.search as string | undefined;
+      const sortBy = (req.query.sortBy as string) || 'createdAt'; // title, author, createdAt, updatedAt, ownerEmail
+      const sortOrder = (req.query.sortOrder as string) || 'desc'; // asc, desc
+      const ownerId = req.query.ownerId as string | undefined;
+      const isPublic = req.query.isPublic as string | undefined;
 
       const { db } = await import('../config/database');
       const { books, users } = await import('../models/schema');
-      const { like, or, desc, count, eq } = await import('drizzle-orm');
+      const { like, or, desc, asc, count, eq, and } = await import('drizzle-orm');
 
       // Build where conditions
       const conditions = [];
@@ -1271,11 +1299,44 @@ router.get('/books',
         );
       }
 
+      // Filter by owner
+      if (ownerId) {
+        conditions.push(eq(books.ownerId, ownerId));
+      }
+
+      // Filter by public status
+      if (isPublic !== undefined) {
+        const isPublicBool = isPublic === 'true';
+        conditions.push(eq(books.isPublic, isPublicBool));
+      }
+
+      // Determine sort column and direction
+      const sortDirection = sortOrder === 'asc' ? asc : desc;
+      let sortColumn;
+      switch (sortBy) {
+        case 'title':
+          sortColumn = books.title;
+          break;
+        case 'author':
+          sortColumn = books.author;
+          break;
+        case 'updatedAt':
+          sortColumn = books.updatedAt;
+          break;
+        case 'ownerEmail':
+          sortColumn = users.email;
+          break;
+        case 'createdAt':
+        default:
+          sortColumn = books.createdAt;
+          break;
+      }
+
       // Get total count
       const [totalResult] = await db
         .select({ count: count() })
         .from(books)
-        .where(conditions.length > 0 ? or(...conditions) : undefined);
+        .where(conditions.length > 0 ? and(...conditions) : undefined);
 
       // Get paginated books with owner info
       const booksList = await db
@@ -1306,8 +1367,8 @@ router.get('/books',
         })
         .from(books)
         .leftJoin(users, eq(users.id, books.ownerId))
-        .where(conditions.length > 0 ? or(...conditions) : undefined)
-        .orderBy(desc(books.createdAt))
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(sortDirection(sortColumn))
         .limit(limit)
         .offset((page - 1) * limit);
 
