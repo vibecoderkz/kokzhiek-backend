@@ -69,12 +69,15 @@ export class AuditService {
     newValue: any,
     req?: Request
   ): Promise<void> {
+    // Переводим entityType на русский
+    const entityTypeRu = entityType === 'book' ? 'книга' : entityType;
+
     await this.log({
       userId,
       action: 'create',
       entityType,
       entityId,
-      description: `Created ${entityType} ${entityId}`,
+      description: `Создана ${entityTypeRu} ${entityId}`,
       extraData: { newValue },
       ipAddress: req?.ip,
       userAgent: req?.get('user-agent'),
@@ -95,12 +98,16 @@ export class AuditService {
     // Вычисляем изменения
     const changes = this.calculateChanges(oldValue, newValue);
 
+    // Переводим entityType на русский
+    const entityTypeRu = entityType === 'book' ? 'книгу' : entityType;
+    const fieldsWord = changes.length === 1 ? 'поле' : changes.length < 5 ? 'поля' : 'полей';
+
     await this.log({
       userId,
       action: 'update',
       entityType,
       entityId,
-      description: `Updated ${entityType} ${entityId}: ${changes.length} field(s) changed`,
+      description: `Обновлена ${entityTypeRu} ${entityId}: изменено ${changes.length} ${fieldsWord}`,
       extraData: {
         oldValue,
         newValue,
@@ -121,12 +128,15 @@ export class AuditService {
     oldValue: any,
     req?: Request
   ): Promise<void> {
+    // Переводим entityType на русский
+    const entityTypeRu = entityType === 'book' ? 'книга' : entityType;
+
     await this.log({
       userId,
       action: 'delete',
       entityType,
       entityId,
-      description: `Deleted ${entityType} ${entityId}`,
+      description: `Удалена ${entityTypeRu} ${entityId}`,
       extraData: { oldValue },
       ipAddress: req?.ip,
       userAgent: req?.get('user-agent'),
@@ -146,7 +156,7 @@ export class AuditService {
       action: 'login',
       entityType: 'user',
       entityId: userId,
-      description: success ? 'User logged in' : 'Failed login attempt',
+      description: success ? 'Пользователь вошёл в систему' : 'Неудачная попытка входа',
       extraData: { success },
       ipAddress: req?.ip,
       userAgent: req?.get('user-agent'),
@@ -162,7 +172,7 @@ export class AuditService {
       action: 'logout',
       entityType: 'user',
       entityId: userId,
-      description: 'User logged out',
+      description: 'Пользователь вышел из системы',
       ipAddress: req?.ip,
       userAgent: req?.get('user-agent'),
     });
@@ -177,12 +187,15 @@ export class AuditService {
     entityId: string,
     req?: Request
   ): Promise<void> {
+    // Переводим entityType на русский
+    const entityTypeRu = entityType === 'book' ? 'книге' : entityType;
+
     await this.log({
       userId,
       action: 'access',
       entityType,
       entityId,
-      description: `Accessed ${entityType} ${entityId}`,
+      description: `Открыт доступ к ${entityTypeRu} ${entityId}`,
       ipAddress: req?.ip,
       userAgent: req?.get('user-agent'),
     });
