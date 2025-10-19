@@ -72,12 +72,17 @@ export class AuditService {
     // Переводим entityType на русский
     const entityTypeRu = entityType === 'book' ? 'книга' : entityType;
 
+    // Получаем название для книги
+    const entityName = entityType === 'book' && newValue?.title
+      ? `"${newValue.title}"`
+      : entityId;
+
     await this.log({
       userId,
       action: 'create',
       entityType,
       entityId,
-      description: `Создана ${entityTypeRu} ${entityId}`,
+      description: `Создана ${entityTypeRu} ${entityName}`,
       extraData: { newValue },
       ipAddress: req?.ip,
       userAgent: req?.get('user-agent'),
@@ -100,14 +105,32 @@ export class AuditService {
 
     // Переводим entityType на русский
     const entityTypeRu = entityType === 'book' ? 'книгу' : entityType;
-    const fieldsWord = changes.length === 1 ? 'поле' : changes.length < 5 ? 'поля' : 'полей';
+
+    // Получаем название для книги
+    const entityName = entityType === 'book' && (newValue?.title || oldValue?.title)
+      ? `"${newValue?.title || oldValue?.title}"`
+      : entityId;
+
+    // Формируем описание изменённых полей
+    let description: string;
+    if (changes.length === 0) {
+      description = `Обновлена ${entityTypeRu} ${entityName}`;
+    } else if (changes.length <= 3) {
+      // Если полей мало, перечисляем их
+      const fieldNames = changes.map(c => this.translateFieldName(c.field)).join(', ');
+      description = `Обновлена ${entityTypeRu} ${entityName}: ${fieldNames}`;
+    } else {
+      // Если полей много, указываем количество
+      const fieldsWord = changes.length < 5 ? 'поля' : 'полей';
+      description = `Обновлена ${entityTypeRu} ${entityName}: ${changes.length} ${fieldsWord}`;
+    }
 
     await this.log({
       userId,
       action: 'update',
       entityType,
       entityId,
-      description: `Обновлена ${entityTypeRu} ${entityId}: изменено ${changes.length} ${fieldsWord}`,
+      description,
       extraData: {
         oldValue,
         newValue,
@@ -131,12 +154,17 @@ export class AuditService {
     // Переводим entityType на русский
     const entityTypeRu = entityType === 'book' ? 'книга' : entityType;
 
+    // Получаем название для книги
+    const entityName = entityType === 'book' && oldValue?.title
+      ? `"${oldValue.title}"`
+      : entityId;
+
     await this.log({
       userId,
       action: 'delete',
       entityType,
       entityId,
-      description: `Удалена ${entityTypeRu} ${entityId}`,
+      description: `Удалена ${entityTypeRu} ${entityName}`,
       extraData: { oldValue },
       ipAddress: req?.ip,
       userAgent: req?.get('user-agent'),
@@ -377,6 +405,34 @@ export class AuditService {
     }
 
     return changes;
+  }
+
+  /**
+   * Перевести название поля на русский
+   */
+  private static translateFieldName(fieldName: string): string {
+    const translations: Record<string, string> = {
+      // Основные поля книги
+      title: 'название',
+      description: 'описание',
+      author: 'автор',
+      authors: 'авторы',
+      grade: 'класс',
+      coverImageUrl: 'обложка',
+      isPublic: 'публичность',
+      visibility: 'видимость',
+      isbn: 'ISBN',
+      year: 'год издания',
+      publisher: 'издательство',
+      edition: 'издание',
+      subject: 'предмет',
+      language: 'язык',
+      // Другие возможные поля
+      schoolId: 'школа',
+      ownerId: 'владелец',
+    };
+
+    return translations[fieldName] || fieldName;
   }
 
   /**
