@@ -103,21 +103,19 @@ export class AuditService {
     // Вычисляем изменения
     const changes = this.calculateChanges(oldValue, newValue);
 
-    // Формируем описание изменённых полей (БЕЗ названия книги)
+    // Формируем описание изменённых полей
     let description: string;
     if (changes.length === 0) {
-      description = `Обновлена книга`;
+      // Если изменений нет - не создаём запись в audit log
+      return;
     } else if (changes.length === 1) {
-      // Одно поле - просто говорим что изменено
-      description = this.getChangedVerb(changes[0].field);
-    } else if (changes.length <= 3) {
-      // 2-3 поля - перечисляем их
-      const fieldNames = changes.map(c => this.getChangedVerb(c.field)).join(', ');
-      description = fieldNames;
+      // Одно поле - "Изменено название" (без двоеточия)
+      const fieldName = this.translateFieldName(changes[0].field);
+      description = `Изменено ${fieldName}`;
     } else {
-      // Много полей - указываем количество
-      const fieldsWord = changes.length < 5 ? 'поля' : 'полей';
-      description = `Изменено ${changes.length} ${fieldsWord}`;
+      // Несколько полей - "Изменено: название, класс, автор" (с двоеточием)
+      const fieldNames = changes.map(c => this.translateFieldName(c.field)).join(', ');
+      description = `Изменено: ${fieldNames}`;
     }
 
     // Делаем первую букву заглавной
@@ -392,8 +390,29 @@ export class AuditService {
       const oldVal = oldValue[key];
       const newVal = newValue[key];
 
-      // Сравниваем значения
-      if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+      // Нормализуем значения для сравнения (пустые массивы, null, undefined и пустые строки считаем одинаковыми)
+      const normalizeValue = (val: any) => {
+        if (val === null || val === undefined || val === '') return null;
+        if (Array.isArray(val) && val.length === 0) return null;
+        if (typeof val === 'string') {
+          const trimmed = val.trim();
+          // Пустые строки, одиночные символы вроде ":", "-" и т.д. считаем пустыми
+          if (trimmed === '' || trimmed === ':' || trimmed === '-' || trimmed === '—') return null;
+        }
+        return val;
+      };
+
+      const normalizedOld = normalizeValue(oldVal);
+      const normalizedNew = normalizeValue(newVal);
+
+      // Сравниваем нормализованные значения
+      // Если оба значения null (пустые), то это не изменение
+      if (normalizedOld === null && normalizedNew === null) {
+        continue;
+      }
+
+      // Сравниваем через JSON.stringify
+      if (JSON.stringify(normalizedOld) !== JSON.stringify(normalizedNew)) {
         changes.push({
           field: key,
           oldValue: oldVal,
@@ -431,44 +450,6 @@ export class AuditService {
     };
 
     return translations[fieldName] || fieldName;
-  }
-
-  /**
-   * Получить правильную форму глагола "изменён" для поля
-   */
-  private static getChangedVerb(fieldName: string): string {
-    const russianName = this.translateFieldName(fieldName);
-
-    // Определяем род по окончанию русского названия
-    // Мужской род (изменён): автор, класс, год, предмет, язык, владелец
-    const masculineEndings = ['р', 'с', 'д', 't', 'к', 'ц'];
-    // Женский род (изменена): обложка, публичность, видимость, школа
-    const feminineEndings = ['а', 'я', 'ь', 'ость'];
-    // Средний род (изменено): название, описание, издание, издательство
-    const neuterEndings = ['о', 'е', 'ие', 'во'];
-
-    const lastChar = russianName[russianName.length - 1];
-    const lastTwoChars = russianName.slice(-2);
-    const lastFourChars = russianName.slice(-4);
-
-    // Проверяем специальные случаи
-    if (lastFourChars === 'ость') {
-      return `изменена ${russianName}`;
-    }
-    if (lastTwoChars === 'ие' || lastTwoChars === 'во') {
-      return `изменено ${russianName}`;
-    }
-
-    // Проверяем по последней букве
-    if (feminineEndings.includes(lastChar)) {
-      return `изменена ${russianName}`;
-    }
-    if (neuterEndings.includes(lastChar)) {
-      return `изменено ${russianName}`;
-    }
-
-    // По умолчанию мужской род
-    return `изменён ${russianName}`;
   }
 
   /**

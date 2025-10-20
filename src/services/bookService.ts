@@ -344,44 +344,17 @@ export class BookService {
   }
 
   static async updateBook(bookId: string, userId: string, input: UpdateBookInput): Promise<BookWithDetails> {
-    // 🔍 DEBUG: Входящие данные в сервис
-    console.log('📥 [BookService/updateBook] Получены данные:', {
-      bookId,
-      userId,
-      inputKeys: Object.keys(input),
-      input: {
-        ...input,
-        coverImageUrl: input.coverImageUrl ? 
-          `[base64 length: ${input.coverImageUrl.length}]` : 
-          input.coverImageUrl
-      }
-    });
-
     // Check if user can edit this book
     const canEdit = await this.canUserEditBook(bookId, userId);
     if (!canEdit) {
       throw new Error('Access denied');
     }
-    console.log('✅ [BookService/updateBook] Права проверены - пользователь может редактировать');
 
     // Подготавливаем данные для обновления
     const updateData = {
       ...input,
       updatedAt: new Date(),
     };
-    
-    console.log('🔧 [BookService/updateBook] Подготавливаем данные для обновления:', {
-      fieldsCount: Object.keys(updateData).length,
-      hasTitle: !!updateData.title,
-      hasAuthors: !!updateData.authors,
-      hasISBN: !!updateData.isbn,
-      hasYear: !!updateData.year,
-      hasPublisher: !!updateData.publisher,
-      hasEdition: !!updateData.edition,
-      hasSubject: !!updateData.subject,
-      hasGrade: !!updateData.grade,
-      hasCoverImage: !!updateData.coverImageUrl
-    });
 
     // Get old book data for audit log
     const [oldBook] = await db
@@ -394,18 +367,22 @@ export class BookService {
       throw new Error('Book not found');
     }
 
+    // 📝 Создаём объект только с теми полями, которые были в запросе на обновление
+    // Это нужно для точного определения изменений в audit log
+    const oldBookForAudit: Record<string, any> = {};
+    const newBookForAudit: Record<string, any> = {};
+
+    // Проходим по всем полям из input и добавляем только их в объекты для сравнения
+    for (const key of Object.keys(input)) {
+      oldBookForAudit[key] = oldBook[key as keyof typeof oldBook];
+      newBookForAudit[key] = input[key as keyof typeof input];
+    }
+
     const [updatedBook] = await db
       .update(books)
       .set(updateData)
       .where(eq(books.id, bookId))
       .returning();
-
-    console.log('💾 [BookService/updateBook] Результат обновления в БД:', {
-      success: !!updatedBook,
-      updatedBookId: updatedBook?.id,
-      hasTitle: !!updatedBook?.title,
-      hasMetadata: !!(updatedBook?.isbn || updatedBook?.year || updatedBook?.publisher)
-    });
 
     if (!updatedBook) {
       throw new Error('Book not found');
@@ -414,48 +391,14 @@ export class BookService {
     // Log the update to audit logs
     const { AuditService } = await import('./auditService');
 
-    // Create description based on what changed
-    let description = 'Updated book';
-    const changedFields: string[] = [];
-
-    if (input.title && input.title !== oldBook.title) {
-      changedFields.push('title');
-      description = `Updated book title from "${oldBook.title}" to "${input.title}"`;
-    }
-    if (input.description !== undefined && input.description !== oldBook.description) {
-      changedFields.push('description');
-      if (changedFields.length === 1) description = 'Updated book description';
-    }
-    if (input.author !== undefined && input.author !== oldBook.author) {
-      changedFields.push('author');
-      if (changedFields.length === 1) description = `Updated book author to "${input.author}"`;
-    }
-    if (input.grade !== undefined && input.grade !== oldBook.grade) {
-      changedFields.push('grade');
-      if (changedFields.length === 1) description = `Updated book grade to ${input.grade}`;
-    }
-    if (input.coverImageUrl !== undefined && input.coverImageUrl !== oldBook.coverImageUrl) {
-      changedFields.push('coverImageUrl');
-      if (changedFields.length === 1) description = 'Updated book cover image';
-    }
-    if (input.settings !== undefined) {
-      changedFields.push('settings');
-      if (changedFields.length === 1) description = 'Updated book settings';
-    }
-
-    if (changedFields.length > 1) {
-      description = `Updated book: ${changedFields.join(', ')}`;
-    }
-
     await AuditService.logUpdate(
       userId,
       'book',
       bookId,
-      oldBook,
-      updatedBook
+      oldBookForAudit,  // Передаём только те поля, которые были в input
+      newBookForAudit   // Передаём только те поля, которые были в input
     );
 
-    console.log('🔄 [BookService/updateBook] Получаем обновленную книгу...');
     return this.getBookById(bookId, userId);
   }
 
