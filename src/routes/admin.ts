@@ -1389,6 +1389,7 @@ router.get('/books',
               description: auditLogs.description,
               createdAt: auditLogs.createdAt,
               userId: auditLogs.userId,
+              extraData: auditLogs.extraData,
             })
             .from(auditLogs)
             .where(
@@ -1415,7 +1416,8 @@ router.get('/books',
             lastEditDescription: lastAudit?.description || null,
             lastEditedBy: lastAudit?.userId || null,
             lastEditorEmail,
-            chaptersCount: chapterCount.count || 0
+            chaptersCount: chapterCount.count || 0,
+            lastAuditExtraData: lastAudit?.extraData || null
           };
         })
       );

@@ -18,6 +18,7 @@ import auditRoutes from './routes/auditRoutes';
 import uploadRoutes from './routes/upload';
 import { errorHandler } from './middleware/errorHandler';
 import { setupSwagger } from './config/swagger';
+import { setupAuditLogCleanup } from './jobs/auditLogCleanup';
 
 dotenv.config();
 
@@ -123,6 +124,9 @@ if (require.main === module) {
     console.log(`🚀 Kokzhiek Editor Backend running on port ${PORT}`);
     console.log(`📚 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🏥 Health check: http://localhost:${PORT}/health`);
+
+    // Setup cron jobs for audit log cleanup
+    setupAuditLogCleanup();
   });
 }
 
