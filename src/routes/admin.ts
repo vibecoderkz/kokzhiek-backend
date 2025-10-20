@@ -1576,4 +1576,309 @@ router.get('/export',
   }
 );
 
+/**
+ * @swagger
+ * /api/admin/audit-logs/export:
+ *   get:
+ *     summary: Export audit logs to CSV or JSON file
+ *     tags: [Admin - Audit Logs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: format
+ *         schema:
+ *           type: string
+ *           enum: [csv, json]
+ *           default: csv
+ *         description: Export format
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Filter logs from this date
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Filter logs until this date
+ *       - in: query
+ *         name: action
+ *         schema:
+ *           type: string
+ *           enum: [create, update, delete, login, logout, access]
+ *         description: Filter by action type
+ *       - in: query
+ *         name: entityType
+ *         schema:
+ *           type: string
+ *         description: Filter by entity type (e.g., book, user)
+ *     responses:
+ *       200:
+ *         description: Audit logs exported successfully
+ *         content:
+ *           text/csv:
+ *             schema:
+ *               type: string
+ *           application/json:
+ *             schema:
+ *               type: object
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin access required
+ */
+router.get('/audit-logs/export',
+  authenticateToken,
+  requireRole(['admin']),
+  async (req, res): Promise<void> => {
+    try {
+      const format = (req.query.format as string) || 'csv';
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+      const action = req.query.action as string | undefined;
+      const entityType = req.query.entityType as string | undefined;
+
+      const { AuditService } = await import('../services/auditService');
+
+      // Используем существующий метод экспорта из AuditService
+      if (format === 'csv') {
+        const csvData = await AuditService.exportToCSV({
+          startDate,
+          endDate,
+          action: action as any,
+          entityType,
+          limit: 10000, // Максимум для экспорта
+        });
+
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename=audit_logs_${new Date().toISOString().split('T')[0]}.csv`);
+        res.send(csvData);
+      } else {
+        // JSON формат
+        const logsData = await AuditService.getAuditLogs({
+          startDate,
+          endDate,
+          action: action as any,
+          entityType,
+          limit: 10000,
+          page: 1,
+        });
+
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Content-Disposition', `attachment; filename=audit_logs_${new Date().toISOString().split('T')[0]}.json`);
+        res.json({
+          success: true,
+          exportedAt: new Date().toISOString(),
+          filters: {
+            startDate: startDate?.toISOString(),
+            endDate: endDate?.toISOString(),
+            action,
+            entityType
+          },
+          data: logsData.logs,
+          total: logsData.pagination.total
+        });
+      }
+    } catch (error) {
+      console.error('Error exporting audit logs:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to export audit logs',
+        }
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /api/admin/audit-logs/search:
+ *   get:
+ *     summary: Search audit logs by description keywords
+ *     tags: [Admin - Audit Logs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: query
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Search query (keywords to search in descriptions)
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: number
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: number
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 50
+ *         description: Number of logs per page
+ *       - in: query
+ *         name: action
+ *         schema:
+ *           type: string
+ *           enum: [create, update, delete, login, logout, access]
+ *         description: Filter by action type
+ *       - in: query
+ *         name: entityType
+ *         schema:
+ *           type: string
+ *         description: Filter by entity type
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Filter logs from this date
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Filter logs until this date
+ *     responses:
+ *       200:
+ *         description: Search results retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Search results retrieved successfully
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     logs:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                           action:
+ *                             type: string
+ *                           description:
+ *                             type: string
+ *                           entityType:
+ *                             type: string
+ *                           entityId:
+ *                             type: string
+ *                           entityName:
+ *                             type: string
+ *                             nullable: true
+ *                           userId:
+ *                             type: string
+ *                           userEmail:
+ *                             type: string
+ *                             nullable: true
+ *                           createdAt:
+ *                             type: string
+ *                             format: date-time
+ *                           ipAddress:
+ *                             type: string
+ *                             nullable: true
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         page:
+ *                           type: number
+ *                         limit:
+ *                           type: number
+ *                         total:
+ *                           type: number
+ *                         totalPages:
+ *                           type: number
+ *                     query:
+ *                       type: string
+ *                       description: The search query used
+ *       400:
+ *         description: Invalid input - search query is required
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin access required
+ */
+router.get('/audit-logs/search',
+  authenticateToken,
+  requireRole(['admin']),
+  async (req, res): Promise<void> => {
+    try {
+      const query = req.query.query as string;
+
+      if (!query || query.trim() === '') {
+        res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_INPUT',
+            message: 'Search query is required',
+          }
+        });
+        return;
+      }
+
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+      const action = req.query.action as string | undefined;
+      const entityType = req.query.entityType as string | undefined;
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+
+      const { AuditService } = await import('../services/auditService');
+
+      // Используем существующий метод с поиском
+      const logsData = await AuditService.getAuditLogs({
+        search: query,
+        page,
+        limit,
+        action: action as any,
+        entityType,
+        startDate,
+        endDate,
+      });
+
+      res.json({
+        success: true,
+        message: 'Search results retrieved successfully',
+        data: {
+          logs: logsData.logs,
+          pagination: logsData.pagination,
+          query: query,
+          filters: {
+            action,
+            entityType,
+            startDate: startDate?.toISOString(),
+            endDate: endDate?.toISOString()
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error searching audit logs:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to search audit logs',
+        }
+      });
+    }
+  }
+);
+
 export default router;
