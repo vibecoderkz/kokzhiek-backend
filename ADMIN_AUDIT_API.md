@@ -11,7 +11,12 @@
 ✅ **Защита личных данных:**
 - Пароли и токены автоматически скрываются (`sanitizeLog` в `auditService.ts`)
 - Поля `passwordHash`, `password`, `emailVerificationToken`, `passwordResetToken`, `tokenHash`, `token` заменяются на `[REDACTED]`
-- Доступ только для администраторов (требуется токен и роль `admin`)
+- Доступ для администраторов и модераторов (требуется токен и роль `admin` или `moderator`)
+
+✅ **Права доступа:**
+- Админы (`admin`) - полный доступ к экспорту и поиску
+- Модераторы (`moderator`) - полный доступ к экспорту и поиску
+- Другие роли (`author`, `school`, `teacher`, `student`) - доступ запрещен
 
 ---
 
@@ -27,7 +32,7 @@ GET /api/admin/audit-logs/export
 
 ### Авторизация
 - **Требуется:** Bearer Token
-- **Роль:** Admin
+- **Роль:** Admin или Moderator
 
 ### Query Parameters
 
@@ -155,7 +160,7 @@ GET /api/admin/audit-logs/search
 
 ### Авторизация
 - **Требуется:** Bearer Token
-- **Роль:** Admin
+- **Роль:** Admin или Moderator
 
 ### Query Parameters
 

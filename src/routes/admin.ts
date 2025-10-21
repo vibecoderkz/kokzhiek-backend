@@ -1632,7 +1632,7 @@ router.get('/export',
  */
 router.get('/audit-logs/export',
   authenticateToken,
-  requireRole(['admin']),
+  requireRole(['admin', 'moderator']),
   async (req, res): Promise<void> => {
     try {
       const format = (req.query.format as string) || 'csv';
@@ -1817,7 +1817,7 @@ router.get('/audit-logs/export',
  */
 router.get('/audit-logs/search',
   authenticateToken,
-  requireRole(['admin']),
+  requireRole(['admin', 'moderator']),
   async (req, res): Promise<void> => {
     try {
       const query = req.query.query as string;
