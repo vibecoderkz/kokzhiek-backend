@@ -25,8 +25,18 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Trust proxy for proper IP detection behind load balancers/proxies
-app.set('trust proxy', true);
+// SECURITY: Trust Proxy Configuration for Render.com
+// =====================================
+// For Render.com deployment, we trust only the first proxy (value: 1)
+// This allows us to get the real client IP from X-Forwarded-For header
+// while preventing IP spoofing attacks that could bypass rate limiting.
+//
+// DO NOT set to 'true' - that would trust all proxies and allow
+// attackers to spoof their IP address to bypass rate limits.
+//
+// Reference: https://expressjs.com/en/guide/behind-proxies.html
+// Security reference: https://express-rate-limit.github.io/ERR_ERL_PERMISSIVE_TRUST_PROXY/
+app.set('trust proxy', 1);
 
 app.use(helmet());
 
@@ -49,6 +59,10 @@ app.use(cors({
   credentials: true,
 }));
 
+// SECURITY: Rate Limiting Configuration
+// =====================================
+// This rate limiter works correctly with the trust proxy setting above.
+// It uses req.ip which is now secure thanks to the 'trust proxy: 1' setting.
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'),
