@@ -338,7 +338,6 @@ export class AuditService {
         )
       );
 
-    console.log(`Cleaned up ${result.rowCount || 0} old audit logs`);
     return result.rowCount || 0;
   }
 
@@ -358,7 +357,6 @@ export class AuditService {
         )
       );
 
-    console.log(`Permanently deleted ${result.rowCount || 0} audit logs`);
     return result.rowCount || 0;
   }
 
@@ -491,6 +489,78 @@ export class AuditService {
       ...log,
       extraData: log.extraData ? sanitizeObject(log.extraData) : log.extraData,
     };
+  }
+
+  /**
+   * Получить статистику по пользователям
+   */
+  static async getUserStats(filters: Omit<AuditLogFilters, 'page' | 'limit'> = {}) {
+    const conditions: any[] = [isNull(auditLogs.deletedAt)];
+
+    if (filters.action) {
+      conditions.push(eq(auditLogs.action, filters.action));
+    }
+    if (filters.entityType) {
+      conditions.push(eq(auditLogs.entityType, filters.entityType));
+    }
+    if (filters.entityId) {
+      conditions.push(eq(auditLogs.entityId, filters.entityId));
+    }
+    if (filters.startDate) {
+      conditions.push(sql`${auditLogs.createdAt} >= ${filters.startDate}`);
+    }
+    if (filters.endDate) {
+      conditions.push(sql`${auditLogs.createdAt} <= ${filters.endDate}`);
+    }
+
+    // Получаем количество изменений по каждому пользователю
+    const stats = await db
+      .select({
+        userId: auditLogs.userId,
+        count: sql<number>`count(*)`,
+      })
+      .from(auditLogs)
+      .where(and(...conditions))
+      .groupBy(auditLogs.userId)
+      .orderBy(desc(sql`count(*)`));
+
+    // Обогащаем статистику данными о пользователях
+    const { users } = await import('../models/schema');
+    const enrichedStats = await Promise.all(
+      stats.map(async (stat) => {
+        let userEmail = null;
+        let userFirstName = null;
+        let userLastName = null;
+
+        if (stat.userId) {
+          const [user] = await db
+            .select({
+              email: users.email,
+              firstName: users.firstName,
+              lastName: users.lastName,
+            })
+            .from(users)
+            .where(eq(users.id, stat.userId))
+            .limit(1);
+
+          if (user) {
+            userEmail = user.email;
+            userFirstName = user.firstName;
+            userLastName = user.lastName;
+          }
+        }
+
+        return {
+          userId: stat.userId,
+          userEmail,
+          userFirstName,
+          userLastName,
+          changesCount: stat.count,
+        };
+      })
+    );
+
+    return enrichedStats;
   }
 
   /**

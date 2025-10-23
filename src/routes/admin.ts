@@ -1881,4 +1881,144 @@ router.get('/audit-logs/search',
   }
 );
 
+/**
+ * @swagger
+ * /api/admin/audit-logs:
+ *   get:
+ *     summary: Get audit logs with advanced filtering and pagination
+ *     tags: [Admin - Audit Logs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: number
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: number
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 50
+ *         description: Items per page
+ *       - in: query
+ *         name: entityId
+ *         schema:
+ *           type: string
+ *         description: Filter by book ID
+ *       - in: query
+ *         name: userId
+ *         schema:
+ *           type: string
+ *         description: Filter by user ID
+ *       - in: query
+ *         name: entityType
+ *         schema:
+ *           type: string
+ *         description: Filter by entity type (e.g., book)
+ *       - in: query
+ *         name: action
+ *         schema:
+ *           type: string
+ *           enum: [create, update, delete, login, logout, access]
+ *         description: Filter by action type
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Filter from this date
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Filter until this date
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search in descriptions
+ *     responses:
+ *       200:
+ *         description: Audit logs retrieved successfully with stats
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin/Moderator access required
+ */
+router.get('/audit-logs',
+  authenticateToken,
+  requireRole(['admin', 'moderator']),
+  async (req, res): Promise<void> => {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+      const entityId = req.query.entityId as string | undefined;
+      const userId = req.query.userId as string | undefined;
+      const entityType = req.query.entityType as string | undefined;
+      const action = req.query.action as string | undefined;
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+      const search = req.query.search as string | undefined;
+
+      const { AuditService } = await import('../services/auditService');
+
+      // Получаем логи с фильтрами
+      const logsData = await AuditService.getAuditLogs({
+        page,
+        limit,
+        entityId,
+        userId,
+        entityType,
+        action: action as any,
+        startDate,
+        endDate,
+        search,
+      });
+
+      // Получаем статистику по пользователям (с теми же фильтрами, но без пагинации)
+      const userStats = await AuditService.getUserStats({
+        entityId,
+        entityType,
+        action: action as any,
+        startDate,
+        endDate,
+      });
+
+      res.json({
+        success: true,
+        message: 'Audit logs retrieved successfully',
+        data: {
+          logs: logsData.logs,
+          pagination: logsData.pagination,
+          userStats, // Сколько изменений у кого
+          filters: {
+            entityId,
+            userId,
+            entityType,
+            action,
+            startDate: startDate?.toISOString(),
+            endDate: endDate?.toISOString(),
+            search,
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error retrieving audit logs:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to retrieve audit logs',
+        }
+      });
+    }
+  }
+);
+
 export default router;
