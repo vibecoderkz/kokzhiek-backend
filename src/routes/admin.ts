@@ -2021,4 +2021,244 @@ router.get('/audit-logs',
   }
 );
 
+/**
+ * @swagger
+ * /api/admin/audit-logs/{logId}/undo:
+ *   post:
+ *     summary: Undo a specific action recorded in audit logs
+ *     tags: [Admin - Audit Logs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: logId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The audit log ID to undo
+ *     responses:
+ *       200:
+ *         description: Action undone successfully
+ *       400:
+ *         description: Action cannot be undone
+ *       404:
+ *         description: Audit log not found
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin access required
+ */
+router.post('/audit-logs/:logId/undo',
+  authenticateToken,
+  requireRole(['admin']),
+  async (req, res): Promise<void> => {
+    try {
+      const { logId } = req.params;
+      const userId = (req as any).user.userId;
+
+      const { db } = await import('../config/database');
+      const { auditLogs, books, chapters, blocks, registrationKeys } = await import('../models/schema');
+      const { eq } = await import('drizzle-orm');
+
+      // Получаем audit log
+      const [log] = await db
+        .select()
+        .from(auditLogs)
+        .where(eq(auditLogs.id, logId))
+        .limit(1);
+
+      if (!log) {
+        res.status(404).json({
+          success: false,
+          error: {
+            code: 'LOG_NOT_FOUND',
+            message: 'Audit log not found',
+          }
+        });
+        return;
+      }
+
+      // Определяем, можно ли отменить действие
+      const action = log.action.toLowerCase();
+      const entityType = log.entityType.toLowerCase();
+
+      // Проверяем, что это не системное действие
+      if (action === 'logged_in' || action === 'logged_out' || action === 'accessed') {
+        res.status(400).json({
+          success: false,
+          error: {
+            code: 'CANNOT_UNDO',
+            message: 'System actions cannot be undone',
+          }
+        });
+        return;
+      }
+
+      const { AuditService } = await import('../services/auditService');
+
+      try {
+        // В зависимости от типа действия и сущности выполняем откат
+        if (action === 'created') {
+          // Для created - удаляем созданную сущность
+          if (entityType === 'book' && log.entityId) {
+            await db.delete(books).where(eq(books.id, log.entityId));
+            await AuditService.logAction({
+              userId,
+              action: 'deleted',
+              entityType: 'book',
+              entityId: log.entityId,
+              description: `Undid creation: ${log.description}`,
+              extraData: { undoLogId: logId }
+            });
+          } else if (entityType === 'chapter' && log.entityId) {
+            await db.delete(chapters).where(eq(chapters.id, log.entityId));
+            await AuditService.logAction({
+              userId,
+              action: 'deleted',
+              entityType: 'chapter',
+              entityId: log.entityId,
+              description: `Undid creation: ${log.description}`,
+              extraData: { undoLogId: logId }
+            });
+          } else if (entityType === 'block' && log.entityId) {
+            await db.delete(blocks).where(eq(blocks.id, log.entityId));
+            await AuditService.logAction({
+              userId,
+              action: 'deleted',
+              entityType: 'block',
+              entityId: log.entityId,
+              description: `Undid creation: ${log.description}`,
+              extraData: { undoLogId: logId }
+            });
+          } else if (entityType === 'registration_key' && log.entityId) {
+            await db.delete(registrationKeys).where(eq(registrationKeys.id, log.entityId));
+            await AuditService.logAction({
+              userId,
+              action: 'deleted',
+              entityType: 'registration_key',
+              entityId: log.entityId,
+              description: `Undid creation: ${log.description}`,
+              extraData: { undoLogId: logId }
+            });
+          } else {
+            res.status(400).json({
+              success: false,
+              error: {
+                code: 'UNSUPPORTED_ENTITY',
+                message: `Undo not supported for entity type: ${entityType}`,
+              }
+            });
+            return;
+          }
+        } else if (action === 'updated' || action.includes('updated')) {
+          // Для updated - восстанавливаем старые значения
+          const extraData = log.extraData as any;
+
+          if (!extraData || !extraData.changes) {
+            res.status(400).json({
+              success: false,
+              error: {
+                code: 'NO_UNDO_DATA',
+                message: 'No data available to undo this action',
+              }
+            });
+            return;
+          }
+
+          // Формируем объект с старыми значениями
+          const oldValues: Record<string, any> = {};
+          for (const change of extraData.changes) {
+            oldValues[change.field] = change.oldValue;
+          }
+
+          if (entityType === 'book' && log.entityId) {
+            await db.update(books)
+              .set(oldValues)
+              .where(eq(books.id, log.entityId));
+
+            await AuditService.logAction({
+              userId,
+              action: 'updated_book',
+              entityType: 'book',
+              entityId: log.entityId,
+              description: `Undid update: ${log.description}`,
+              extraData: { undoLogId: logId, restoredValues: oldValues }
+            });
+          } else if (entityType === 'chapter' && log.entityId) {
+            await db.update(chapters)
+              .set(oldValues)
+              .where(eq(chapters.id, log.entityId));
+
+            await AuditService.logAction({
+              userId,
+              action: 'updated_chapter',
+              entityType: 'chapter',
+              entityId: log.entityId,
+              description: `Undid update: ${log.description}`,
+              extraData: { undoLogId: logId, restoredValues: oldValues }
+            });
+          } else {
+            res.status(400).json({
+              success: false,
+              error: {
+                code: 'UNSUPPORTED_ENTITY',
+                message: `Undo not supported for entity type: ${entityType}`,
+              }
+            });
+            return;
+          }
+        } else if (action === 'deleted') {
+          // Для deleted - восстанавливаем удаленную сущность
+          res.status(400).json({
+            success: false,
+            error: {
+              code: 'CANNOT_RESTORE',
+              message: 'Restoring deleted entities is not yet supported. Please create a new entity manually.',
+            }
+          });
+          return;
+        } else {
+          res.status(400).json({
+            success: false,
+            error: {
+              code: 'UNSUPPORTED_ACTION',
+              message: `Undo not supported for action: ${action}`,
+            }
+          });
+          return;
+        }
+
+        res.json({
+          success: true,
+          message: 'Action undone successfully',
+          data: {
+            undoneLogId: logId,
+            action: log.action,
+            entityType: log.entityType,
+            entityId: log.entityId
+          }
+        });
+      } catch (undoError) {
+        console.error('Error performing undo:', undoError);
+        res.status(500).json({
+          success: false,
+          error: {
+            code: 'UNDO_FAILED',
+            message: 'Failed to undo action: ' + (undoError instanceof Error ? undoError.message : 'Unknown error'),
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error undoing action:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to undo action',
+        }
+      });
+    }
+  }
+);
+
 export default router;
