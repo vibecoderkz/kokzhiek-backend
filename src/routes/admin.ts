@@ -2669,8 +2669,7 @@ router.post('/books/replace',
             action: 'update',
             entityType: 'book',
             entityId: book.id,
-            entityName: book.title,
-            description: `Bulk replace: "${findText}" → "${replaceText}" in ${changes.map(c => c.field).join(', ')}`,
+            description: `Bulk replace: "${findText}" → "${replaceText}" in ${changes.map(c => c.field).join(', ')} for book "${book.title}"`,
             extraData: {
               changes,
               findReplace: {
