@@ -275,17 +275,27 @@ export class AuditService {
     const { users, books } = await import('../models/schema');
     const enrichedLogs = await Promise.all(
       logs.map(async (log) => {
-        let userEmail = null;
+        let user = null;
         let entityName = null;
 
         if (log.userId) {
-          const [user] = await db
-            .select({ email: users.email })
+          const [userRecord] = await db
+            .select({
+              email: users.email,
+              firstName: users.firstName,
+              lastName: users.lastName,
+            })
             .from(users)
             .where(eq(users.id, log.userId))
             .limit(1);
 
-          userEmail = user?.email || null;
+          if (userRecord) {
+            user = {
+              email: userRecord.email,
+              firstName: userRecord.firstName,
+              lastName: userRecord.lastName,
+            };
+          }
         }
 
         // Добавляем название для книг
@@ -301,7 +311,7 @@ export class AuditService {
 
         return {
           ...log,
-          userEmail,
+          user,
           entityName,
         };
       })
