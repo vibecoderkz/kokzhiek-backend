@@ -2261,4 +2261,467 @@ router.post('/audit-logs/:logId/undo',
   }
 );
 
+/**
+ * @swagger
+ * /api/admin/books/find:
+ *   post:
+ *     summary: Find text in books
+ *     tags: [Admin - Books]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - findText
+ *             properties:
+ *               findText:
+ *                 type: string
+ *                 description: Text to search for
+ *               searchField:
+ *                 type: string
+ *                 enum: [all, title, author]
+ *                 default: all
+ *                 description: Field to search in
+ *               caseSensitive:
+ *                 type: boolean
+ *                 default: false
+ *                 description: Case sensitive search
+ *               wholeWord:
+ *                 type: boolean
+ *                 default: false
+ *                 description: Match whole words only
+ *               useRegex:
+ *                 type: boolean
+ *                 default: false
+ *                 description: Use regular expression
+ *     responses:
+ *       200:
+ *         description: Search completed successfully
+ *       400:
+ *         description: Invalid input
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin access required
+ */
+router.post('/books/find',
+  authenticateToken,
+  requireRole(['admin']),
+  async (req, res): Promise<void> => {
+    try {
+      const {
+        findText,
+        searchField = 'all',
+        caseSensitive = false,
+        wholeWord = false,
+        useRegex = false
+      } = req.body;
+
+      if (!findText || findText.trim() === '') {
+        res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_INPUT',
+            message: 'Search text is required',
+          }
+        });
+        return;
+      }
+
+      const { db } = await import('../config/database');
+      const { books } = await import('../models/schema');
+      const { like, or, and } = await import('drizzle-orm');
+
+      // Подготовка поискового запроса
+      let searchPattern: string;
+
+      if (useRegex) {
+        // Для regex используем as is
+        searchPattern = findText;
+      } else if (wholeWord) {
+        // Для целых слов добавляем границы
+        searchPattern = caseSensitive
+          ? `%${findText}%`
+          : `%${findText.toLowerCase()}%`;
+      } else {
+        // Обычный поиск
+        searchPattern = caseSensitive
+          ? `%${findText}%`
+          : `%${findText.toLowerCase()}%`;
+      }
+
+      const conditions = [];
+
+      // Применяем поиск в зависимости от выбранного поля
+      if (searchField === 'all' || searchField === 'title') {
+        conditions.push(
+          caseSensitive
+            ? like(books.title, searchPattern)
+            : like(books.title, searchPattern)
+        );
+      }
+
+      if (searchField === 'all' || searchField === 'author') {
+        conditions.push(
+          caseSensitive
+            ? like(books.author, searchPattern)
+            : like(books.author, searchPattern)
+        );
+      }
+
+      // Выполняем поиск
+      const matchedBooks = await db
+        .select({
+          id: books.id,
+          title: books.title,
+          author: books.author,
+        })
+        .from(books)
+        .where(conditions.length > 1 ? or(...conditions) : conditions[0]);
+
+      // Подсчитываем совпадения в каждой книге
+      const results = matchedBooks.map(book => {
+        let matchCount = 0;
+        let field = '';
+
+        if (searchField === 'all' || searchField === 'title') {
+          const titleMatches = book.title ?
+            (caseSensitive
+              ? (book.title.match(new RegExp(useRegex ? findText : findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length
+              : (book.title.toLowerCase().match(new RegExp(useRegex ? findText.toLowerCase() : findText.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length
+            ) : 0;
+
+          if (titleMatches > 0) {
+            matchCount += titleMatches;
+            field = 'title';
+          }
+        }
+
+        if (searchField === 'all' || searchField === 'author') {
+          const authorMatches = book.author ?
+            (caseSensitive
+              ? (book.author.match(new RegExp(useRegex ? findText : findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length
+              : (book.author.toLowerCase().match(new RegExp(useRegex ? findText.toLowerCase() : findText.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length
+            ) : 0;
+
+          if (authorMatches > 0) {
+            matchCount += authorMatches;
+            field = field ? 'title, author' : 'author';
+          }
+        }
+
+        return {
+          bookId: book.id,
+          bookTitle: book.title,
+          field,
+          oldValue: field.includes('title') ? book.title : book.author,
+          newValue: '', // Для find не заполняем
+          matchCount
+        };
+      });
+
+      res.json({
+        success: true,
+        message: `Found ${results.length} books with ${results.reduce((sum, r) => sum + r.matchCount, 0)} matches`,
+        data: {
+          results,
+          searchParams: {
+            findText,
+            searchField,
+            caseSensitive,
+            wholeWord,
+            useRegex
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error finding text in books:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to search books',
+        }
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /api/admin/books/replace:
+ *   post:
+ *     summary: Replace text in books
+ *     tags: [Admin - Books]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - findText
+ *               - replaceText
+ *             properties:
+ *               findText:
+ *                 type: string
+ *                 description: Text to search for
+ *               replaceText:
+ *                 type: string
+ *                 description: Text to replace with
+ *               searchField:
+ *                 type: string
+ *                 enum: [all, title, author]
+ *                 default: all
+ *                 description: Field to search in
+ *               caseSensitive:
+ *                 type: boolean
+ *                 default: false
+ *                 description: Case sensitive search
+ *               wholeWord:
+ *                 type: boolean
+ *                 default: false
+ *                 description: Match whole words only
+ *               useRegex:
+ *                 type: boolean
+ *                 default: false
+ *                 description: Use regular expression
+ *     responses:
+ *       200:
+ *         description: Replace completed successfully
+ *       400:
+ *         description: Invalid input
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin access required
+ */
+router.post('/books/replace',
+  authenticateToken,
+  requireRole(['admin']),
+  async (req, res): Promise<void> => {
+    try {
+      const {
+        findText,
+        replaceText,
+        searchField = 'all',
+        caseSensitive = false,
+        wholeWord = false,
+        useRegex = false
+      } = req.body;
+
+      if (!findText || findText.trim() === '') {
+        res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_INPUT',
+            message: 'Search text is required',
+          }
+        });
+        return;
+      }
+
+      if (replaceText === undefined || replaceText === null) {
+        res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_INPUT',
+            message: 'Replace text is required',
+          }
+        });
+        return;
+      }
+
+      const userId = (req as any).user.userId;
+
+      const { db } = await import('../config/database');
+      const { books } = await import('../models/schema');
+      const { like, or, eq } = await import('drizzle-orm');
+      const { AuditService } = await import('../services/auditService');
+
+      // Подготовка поискового запроса
+      let searchPattern: string;
+
+      if (useRegex) {
+        searchPattern = findText;
+      } else if (wholeWord) {
+        searchPattern = caseSensitive
+          ? `%${findText}%`
+          : `%${findText.toLowerCase()}%`;
+      } else {
+        searchPattern = caseSensitive
+          ? `%${findText}%`
+          : `%${findText.toLowerCase()}%`;
+      }
+
+      const conditions = [];
+
+      if (searchField === 'all' || searchField === 'title') {
+        conditions.push(
+          caseSensitive
+            ? like(books.title, searchPattern)
+            : like(books.title, searchPattern)
+        );
+      }
+
+      if (searchField === 'all' || searchField === 'author') {
+        conditions.push(
+          caseSensitive
+            ? like(books.author, searchPattern)
+            : like(books.author, searchPattern)
+        );
+      }
+
+      // Находим все подходящие книги
+      const matchedBooks = await db
+        .select()
+        .from(books)
+        .where(conditions.length > 1 ? or(...conditions) : conditions[0]);
+
+      const results = [];
+
+      // Для каждой книги выполняем замену
+      for (const book of matchedBooks) {
+        const updates: Record<string, any> = {};
+        const changes: any[] = [];
+        let matchCount = 0;
+
+        // Функция для выполнения замены
+        const performReplace = (text: string | null): string | null => {
+          if (!text) return text;
+
+          let result: string;
+          let count = 0;
+
+          if (useRegex) {
+            const regex = new RegExp(findText, caseSensitive ? 'g' : 'gi');
+            result = text.replace(regex, (match) => {
+              count++;
+              return replaceText;
+            });
+          } else if (wholeWord) {
+            const escapedText = findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`\\b${escapedText}\\b`, caseSensitive ? 'g' : 'gi');
+            result = text.replace(regex, (match) => {
+              count++;
+              return replaceText;
+            });
+          } else {
+            if (caseSensitive) {
+              const splits = text.split(findText);
+              count = splits.length - 1;
+              result = splits.join(replaceText);
+            } else {
+              const regex = new RegExp(findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+              result = text.replace(regex, (match) => {
+                count++;
+                return replaceText;
+              });
+            }
+          }
+
+          matchCount += count;
+          return result;
+        };
+
+        // Заменяем в title
+        if ((searchField === 'all' || searchField === 'title') && book.title) {
+          const newTitle = performReplace(book.title);
+          if (newTitle !== book.title) {
+            updates.title = newTitle;
+            changes.push({
+              field: 'title',
+              oldValue: book.title,
+              newValue: newTitle
+            });
+          }
+        }
+
+        // Заменяем в author
+        if ((searchField === 'all' || searchField === 'author') && book.author) {
+          const newAuthor = performReplace(book.author);
+          if (newAuthor !== book.author) {
+            updates.author = newAuthor;
+            changes.push({
+              field: 'author',
+              oldValue: book.author,
+              newValue: newAuthor
+            });
+          }
+        }
+
+        // Если есть изменения, обновляем книгу
+        if (Object.keys(updates).length > 0) {
+          await db
+            .update(books)
+            .set(updates)
+            .where(eq(books.id, book.id));
+
+          // Создаем audit log
+          await AuditService.log({
+            userId,
+            action: 'update',
+            entityType: 'book',
+            entityId: book.id,
+            entityName: book.title,
+            description: `Bulk replace: "${findText}" → "${replaceText}" in ${changes.map(c => c.field).join(', ')}`,
+            extraData: {
+              changes,
+              findReplace: {
+                findText,
+                replaceText,
+                searchField,
+                caseSensitive,
+                wholeWord,
+                useRegex
+              }
+            }
+          });
+
+          results.push({
+            bookId: book.id,
+            bookTitle: book.title,
+            field: changes.map(c => c.field).join(', '),
+            oldValue: changes[0].oldValue,
+            newValue: changes[0].newValue,
+            matchCount
+          });
+        }
+      }
+
+      res.json({
+        success: true,
+        message: `Replaced in ${results.length} books`,
+        data: {
+          results,
+          totalMatches: results.reduce((sum, r) => sum + r.matchCount, 0),
+          searchParams: {
+            findText,
+            replaceText,
+            searchField,
+            caseSensitive,
+            wholeWord,
+            useRegex
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error replacing text in books:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to replace text in books',
+        }
+      });
+    }
+  }
+);
+
 export default router;
