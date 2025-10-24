@@ -2102,9 +2102,9 @@ router.post('/audit-logs/:logId/undo',
           // Для created - удаляем созданную сущность
           if (entityType === 'book' && log.entityId) {
             await db.delete(books).where(eq(books.id, log.entityId));
-            await AuditService.logAction({
+            await AuditService.log({
               userId,
-              action: 'deleted',
+              action: 'delete',
               entityType: 'book',
               entityId: log.entityId,
               description: `Undid creation: ${log.description}`,
@@ -2112,9 +2112,9 @@ router.post('/audit-logs/:logId/undo',
             });
           } else if (entityType === 'chapter' && log.entityId) {
             await db.delete(chapters).where(eq(chapters.id, log.entityId));
-            await AuditService.logAction({
+            await AuditService.log({
               userId,
-              action: 'deleted',
+              action: 'delete',
               entityType: 'chapter',
               entityId: log.entityId,
               description: `Undid creation: ${log.description}`,
@@ -2122,9 +2122,9 @@ router.post('/audit-logs/:logId/undo',
             });
           } else if (entityType === 'block' && log.entityId) {
             await db.delete(blocks).where(eq(blocks.id, log.entityId));
-            await AuditService.logAction({
+            await AuditService.log({
               userId,
-              action: 'deleted',
+              action: 'delete',
               entityType: 'block',
               entityId: log.entityId,
               description: `Undid creation: ${log.description}`,
@@ -2132,9 +2132,9 @@ router.post('/audit-logs/:logId/undo',
             });
           } else if (entityType === 'registration_key' && log.entityId) {
             await db.delete(registrationKeys).where(eq(registrationKeys.id, log.entityId));
-            await AuditService.logAction({
+            await AuditService.log({
               userId,
-              action: 'deleted',
+              action: 'delete',
               entityType: 'registration_key',
               entityId: log.entityId,
               description: `Undid creation: ${log.description}`,
@@ -2176,9 +2176,9 @@ router.post('/audit-logs/:logId/undo',
               .set(oldValues)
               .where(eq(books.id, log.entityId));
 
-            await AuditService.logAction({
+            await AuditService.log({
               userId,
-              action: 'updated_book',
+              action: 'update',
               entityType: 'book',
               entityId: log.entityId,
               description: `Undid update: ${log.description}`,
@@ -2189,9 +2189,9 @@ router.post('/audit-logs/:logId/undo',
               .set(oldValues)
               .where(eq(chapters.id, log.entityId));
 
-            await AuditService.logAction({
+            await AuditService.log({
               userId,
-              action: 'updated_chapter',
+              action: 'update',
               entityType: 'chapter',
               entityId: log.entityId,
               description: `Undid update: ${log.description}`,
