@@ -201,7 +201,6 @@ router.get('/', authenticateToken, async (req: AuthenticatedRequest, res: Respon
       }
     });
   } catch (error) {
-    console.error('Search error:', error);
     res.status(500).json({
       success: false,
       error: {
