@@ -214,8 +214,20 @@ export class AuthService {
   async updateUserProfile(userId: string, updates: {
     firstName?: string;
     lastName?: string;
+    email?: string;
     avatarUrl?: string;
   }): Promise<AuthUser> {
+    // Если обновляется email, проверяем что он уникален
+    if (updates.email) {
+      const existingUser = await db.query.users.findFirst({
+        where: eq(users.email, updates.email),
+      });
+
+      if (existingUser && existingUser.id !== userId) {
+        throw createError(409, 'CONFLICT', 'User with this email already exists');
+      }
+    }
+
     const [user] = await db.update(users)
       .set({
         ...updates,
