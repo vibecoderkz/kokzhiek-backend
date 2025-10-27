@@ -1548,9 +1548,12 @@ router.get('/export',
         res.json(data);
       } else {
         // CSV format with Excel compatibility
+        // Use semicolon as delimiter for Excel on Mac/Windows locales
+        const delimiter = ';';
+
         const createCSV = (items: any[], headers: string[]) => {
           if (!items.length) return '';
-          const csvHeaders = headers.join(',');
+          const csvHeaders = headers.join(delimiter);
           const csvRows = items.map(item =>
             headers.map(header => {
               const value = item[header];
@@ -1574,8 +1577,8 @@ router.get('/export',
                 }
               }
 
-              // Check if value needs quoting (contains comma, quote, or newline)
-              if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n') || stringValue.includes('\r')) {
+              // Check if value needs quoting (contains delimiter, quote, or newline)
+              if (stringValue.includes(delimiter) || stringValue.includes('"') || stringValue.includes('\n') || stringValue.includes('\r')) {
                 // Escape quotes by doubling them and escape newlines
                 stringValue = stringValue
                   .replace(/"/g, '""')
@@ -1585,13 +1588,16 @@ router.get('/export',
               }
 
               return stringValue;
-            }).join(',')
+            }).join(delimiter)
           );
           return [csvHeaders, ...csvRows].join('\n');
         };
 
         // Start with UTF-8 BOM for Excel compatibility
         let csvContent = '\uFEFF';
+
+        // Add separator declaration for Excel
+        csvContent += `sep=${delimiter}\n`;
 
         if (data.registrationKeys) {
           csvContent += 'REGISTRATION KEYS\n';
