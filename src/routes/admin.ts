@@ -1551,9 +1551,35 @@ router.get('/export',
         // Use semicolon as delimiter for Excel on Mac/Windows locales
         const delimiter = ';';
 
+        // Russian translations for column headers
+        const headerTranslations: Record<string, string> = {
+          'id': 'ID',
+          'keyCode': 'Код ключа',
+          'role': 'Роль',
+          'description': 'Описание',
+          'maxUses': 'Макс. использований',
+          'currentUses': 'Текущее использование',
+          'expiresAt': 'Срок действия',
+          'isActive': 'Активен',
+          'createdAt': 'Дата создания',
+          'name': 'Название',
+          'address': 'Адрес',
+          'adminId': 'ID администратора',
+          'email': 'Email',
+          'firstName': 'Имя',
+          'lastName': 'Фамилия',
+          'schoolId': 'ID школы',
+          'teacherId': 'ID учителя',
+          'emailVerified': 'Email подтвержден'
+        };
+
         const createCSV = (items: any[], headers: string[]) => {
           if (!items.length) return '';
-          const csvHeaders = headers.join(delimiter);
+
+          // Translate headers to Russian
+          const translatedHeaders = headers.map(h => headerTranslations[h] || h);
+          const csvHeaders = translatedHeaders.join(delimiter);
+
           const csvRows = items.map(item =>
             headers.map(header => {
               const value = item[header];
@@ -1575,6 +1601,12 @@ router.get('/export',
                   const minutes = String(date.getMinutes()).padStart(2, '0');
                   stringValue = `${day}.${month}.${year} ${hours}:${minutes}`;
                 }
+              }
+
+              // Translate boolean values to Russian
+              if (header === 'isActive' || header === 'emailVerified') {
+                if (value === true) stringValue = 'Да';
+                else if (value === false) stringValue = 'Нет';
               }
 
               // Check if value needs quoting (contains delimiter, quote, or newline)
@@ -1600,19 +1632,19 @@ router.get('/export',
         csvContent += `sep=${delimiter}\n`;
 
         if (data.registrationKeys) {
-          csvContent += 'REGISTRATION KEYS\n';
+          csvContent += 'КЛЮЧИ РЕГИСТРАЦИИ\n';
           csvContent += createCSV(data.registrationKeys, ['id', 'keyCode', 'role', 'description', 'maxUses', 'currentUses', 'expiresAt', 'isActive', 'createdAt']);
           csvContent += '\n\n';
         }
 
         if (data.schools) {
-          csvContent += 'SCHOOLS\n';
+          csvContent += 'ШКОЛЫ\n';
           csvContent += createCSV(data.schools, ['id', 'name', 'description', 'address', 'isActive', 'adminId', 'createdAt']);
           csvContent += '\n\n';
         }
 
         if (data.users) {
-          csvContent += 'USERS\n';
+          csvContent += 'ПОЛЬЗОВАТЕЛИ\n';
           csvContent += createCSV(data.users, ['id', 'email', 'firstName', 'lastName', 'role', 'schoolId', 'teacherId', 'emailVerified', 'createdAt']);
         }
 
