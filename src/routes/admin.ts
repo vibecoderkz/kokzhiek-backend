@@ -954,7 +954,7 @@ router.get('/dashboard/stats',
   async (req, res): Promise<void> => {
     try {
       const { db } = await import('../config/database');
-      const { registrationKeys, schools, users } = await import('../models/schema');
+      const { registrationKeys, schools, users, books } = await import('../models/schema');
       const { count, gt, eq, and } = await import('drizzle-orm');
 
       // Get total keys
@@ -967,6 +967,9 @@ router.get('/dashboard/stats',
         .select({ count: count() })
         .from(registrationKeys)
         .where(gt(registrationKeys.currentUses, 0));
+
+      // Get available keys (total - used)
+      const availableKeys = totalKeysResult.count - usedKeysResult.count;
 
       // Get total schools
       const [totalSchoolsResult] = await db
@@ -985,14 +988,35 @@ router.get('/dashboard/stats',
         .from(users)
         .where(and(eq(users.isActive, true), eq(users.emailVerified, true)));
 
+      // Get total teachers
+      const [totalTeachersResult] = await db
+        .select({ count: count() })
+        .from(users)
+        .where(and(eq(users.role, 'teacher'), eq(users.isActive, true)));
+
+      // Get total students
+      const [totalStudentsResult] = await db
+        .select({ count: count() })
+        .from(users)
+        .where(and(eq(users.role, 'student'), eq(users.isActive, true)));
+
+      // Get total books
+      const [totalBooksResult] = await db
+        .select({ count: count() })
+        .from(books);
+
       res.json({
         success: true,
         data: {
           totalKeys: totalKeysResult.count,
           usedKeys: usedKeysResult.count,
+          availableKeys: availableKeys,
           totalSchools: totalSchoolsResult.count,
           totalUsers: totalUsersResult.count,
-          activeUsers: activeUsersResult.count
+          activeUsers: activeUsersResult.count,
+          totalTeachers: totalTeachersResult.count,
+          totalStudents: totalStudentsResult.count,
+          totalBooks: totalBooksResult.count
         }
       });
     } catch (error) {
