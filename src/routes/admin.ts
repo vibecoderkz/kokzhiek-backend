@@ -1547,24 +1547,51 @@ router.get('/export',
         res.setHeader('Content-Disposition', `attachment; filename=kokzhiek_export_${new Date().toISOString().split('T')[0]}.json`);
         res.json(data);
       } else {
-        // CSV format
+        // CSV format with Excel compatibility
         const createCSV = (items: any[], headers: string[]) => {
           if (!items.length) return '';
           const csvHeaders = headers.join(',');
           const csvRows = items.map(item =>
             headers.map(header => {
               const value = item[header];
+
+              // Handle null/undefined
               if (value === null || value === undefined) return '';
-              if (typeof value === 'string' && value.includes(',')) {
-                return `"${value.replace(/"/g, '""')}"`;
+
+              let stringValue = String(value);
+
+              // Format dates for Excel compatibility
+              if (header === 'createdAt' || header === 'expiresAt' || header === 'updatedAt') {
+                if (value && typeof value === 'string' && value.match(/^\d{4}-\d{2}-\d{2}/)) {
+                  const date = new Date(value);
+                  // Format as DD.MM.YYYY HH:MM for Excel
+                  const day = String(date.getDate()).padStart(2, '0');
+                  const month = String(date.getMonth() + 1).padStart(2, '0');
+                  const year = date.getFullYear();
+                  const hours = String(date.getHours()).padStart(2, '0');
+                  const minutes = String(date.getMinutes()).padStart(2, '0');
+                  stringValue = `${day}.${month}.${year} ${hours}:${minutes}`;
+                }
               }
-              return String(value);
+
+              // Check if value needs quoting (contains comma, quote, or newline)
+              if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n') || stringValue.includes('\r')) {
+                // Escape quotes by doubling them and escape newlines
+                stringValue = stringValue
+                  .replace(/"/g, '""')
+                  .replace(/\n/g, ' ')
+                  .replace(/\r/g, '');
+                return `"${stringValue}"`;
+              }
+
+              return stringValue;
             }).join(',')
           );
           return [csvHeaders, ...csvRows].join('\n');
         };
 
-        let csvContent = '';
+        // Start with UTF-8 BOM for Excel compatibility
+        let csvContent = '\uFEFF';
 
         if (data.registrationKeys) {
           csvContent += 'REGISTRATION KEYS\n';
@@ -1583,7 +1610,7 @@ router.get('/export',
           csvContent += createCSV(data.users, ['id', 'email', 'firstName', 'lastName', 'role', 'schoolId', 'teacherId', 'emailVerified', 'createdAt']);
         }
 
-        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
         res.setHeader('Content-Disposition', `attachment; filename=kokzhiek_export_${new Date().toISOString().split('T')[0]}.csv`);
         res.send(csvContent);
       }
