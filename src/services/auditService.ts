@@ -584,6 +584,8 @@ export class AuditService {
       page: 1,
     });
 
+    const delimiter = ';';
+
     // CSV заголовки
     const headers = [
       'ID',
@@ -600,21 +602,30 @@ export class AuditService {
     // Формируем CSV строки
     const rows = allLogs.logs.map(log => {
       const changesCount = log.extraData?.changes?.length || 0;
+
+      const escapeValue = (val: any) => {
+        const stringVal = String(val);
+        if (stringVal.includes(delimiter) || stringVal.includes('"') || stringVal.includes('\n') || stringVal.includes('\r')) {
+          return `"${stringVal.replace(/"/g, '""').replace(/\n/g, ' ').replace(/\r/g, '')}"`;
+        }
+        return stringVal;
+      };
+
       return [
-        log.id,
-        new Date(log.createdAt).toISOString(),
-        log.userId || 'System',
-        log.action,
-        log.entityType,
-        log.entityId || '-',
-        `"${(log.description || '').replace(/"/g, '""')}"`, // Экранируем кавычки
-        log.ipAddress || '-',
-        changesCount,
-      ].join(',');
+        escapeValue(log.id),
+        escapeValue(new Date(log.createdAt).toISOString()),
+        escapeValue(log.userId || 'System'),
+        escapeValue(log.action),
+        escapeValue(log.entityType),
+        escapeValue(log.entityId || '-'),
+        escapeValue(log.description || ''),
+        escapeValue(log.ipAddress || '-'),
+        escapeValue(changesCount),
+      ].join(delimiter);
     });
 
-    // Собираем CSV с UTF-8 BOM для Excel
-    const csv = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+    // Собираем CSV с UTF-8 BOM и sep= для Excel
+    const csv = '\uFEFF' + `sep=${delimiter}\n` + [headers.join(delimiter), ...rows].join('\n');
     return csv;
   }
 }
