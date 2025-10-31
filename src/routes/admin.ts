@@ -2812,4 +2812,477 @@ router.post('/books/replace',
   }
 );
 
+/**
+ * @swagger
+ * /api/admin/books/{bookId}/export/pdf:
+ *   get:
+ *     summary: Export a book to PDF format
+ *     tags: [Admin - Books]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: bookId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The book ID to export
+ *     responses:
+ *       200:
+ *         description: Book exported to PDF successfully
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       404:
+ *         description: Book not found
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin access required
+ */
+router.get('/books/:bookId/export/pdf',
+  authenticateToken,
+  requireRole(['admin']),
+  async (req, res): Promise<void> => {
+    try {
+      const { bookId } = req.params;
+
+      const { db } = await import('../config/database');
+      const { books, chapters, blocks } = await import('../models/schema');
+      const { eq } = await import('drizzle-orm');
+      const PDFDocument = require('pdfkit');
+
+      // Получаем книгу
+      const [book] = await db
+        .select()
+        .from(books)
+        .where(eq(books.id, bookId))
+        .limit(1);
+
+      if (!book) {
+        res.status(404).json({
+          success: false,
+          error: {
+            code: 'BOOK_NOT_FOUND',
+            message: 'Book not found',
+          }
+        });
+        return;
+      }
+
+      // Получаем главы с блоками
+      const bookChapters = await db
+        .select()
+        .from(chapters)
+        .where(eq(chapters.bookId, bookId))
+        .orderBy(chapters.position);
+
+      // Создаем PDF документ
+      const doc = new PDFDocument({
+        size: 'A4',
+        margins: { top: 50, bottom: 50, left: 50, right: 50 }
+      });
+
+      // Устанавливаем заголовки
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename=${encodeURIComponent(book.title || 'book')}_${new Date().toISOString().split('T')[0]}.pdf`);
+
+      // Pipe PDF в response
+      doc.pipe(res);
+
+      // Заголовок книги
+      doc.fontSize(24).text(book.title, { align: 'center' });
+      doc.moveDown();
+
+      if (book.author) {
+        doc.fontSize(14).text(`Автор: ${book.author}`, { align: 'center' });
+        doc.moveDown();
+      }
+
+      if (book.description) {
+        doc.fontSize(12).text(book.description, { align: 'justify' });
+        doc.moveDown(2);
+      }
+
+      // Добавляем главы
+      for (const chapter of bookChapters) {
+        // Получаем блоки главы
+        const chapterBlocks = await db
+          .select()
+          .from(blocks)
+          .where(eq(blocks.chapterId, chapter.id))
+          .orderBy(blocks.position);
+
+        // Заголовок главы
+        doc.addPage();
+        doc.fontSize(18).text(chapter.title, { underline: true });
+        doc.moveDown();
+
+        if (chapter.description) {
+          doc.fontSize(11).fillColor('gray').text(chapter.description);
+          doc.fillColor('black');
+          doc.moveDown();
+        }
+
+        // Добавляем блоки
+        for (const block of chapterBlocks) {
+          const content = block.content as any;
+
+          switch (block.type) {
+            case 'text':
+            case 'paragraph':
+              if (content.text) {
+                doc.fontSize(11).text(content.text, { align: 'justify' });
+                doc.moveDown();
+              }
+              break;
+
+            case 'heading':
+              if (content.text || content.content) {
+                const level = content.level || 1;
+                const fontSize = 16 - (level * 2);
+                doc.fontSize(fontSize).text(content.text || content.content, { bold: true });
+                doc.moveDown();
+              }
+              break;
+
+            case 'list':
+              if (content.items && Array.isArray(content.items)) {
+                content.items.forEach((item: any) => {
+                  doc.fontSize(11).text(`• ${item}`, { indent: 20 });
+                });
+                doc.moveDown();
+              }
+              break;
+
+            case 'quote':
+              if (content.text || content.content) {
+                doc.fontSize(11).fillColor('gray')
+                  .text(`"${content.text || content.content}"`, { indent: 30, italic: true });
+                doc.fillColor('black');
+                doc.moveDown();
+              }
+              break;
+
+            case 'code':
+              if (content.code || content.content) {
+                doc.fontSize(9).font('Courier')
+                  .text(content.code || content.content, {
+                    fill: '#333',
+                    background: '#f5f5f5'
+                  });
+                doc.font('Helvetica').fontSize(11);
+                doc.moveDown();
+              }
+              break;
+
+            default:
+              // Для неизвестных типов выводим как текст если есть
+              if (content.text || content.content) {
+                doc.fontSize(11).text(content.text || content.content);
+                doc.moveDown();
+              }
+          }
+        }
+      }
+
+      // Завершаем документ
+      doc.end();
+
+    } catch (error) {
+      console.error('Error exporting book to PDF:', error);
+      if (!res.headersSent) {
+        res.status(500).json({
+          success: false,
+          error: {
+            code: 'INTERNAL_ERROR',
+            message: 'Failed to export book to PDF',
+          }
+        });
+      }
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /api/admin/books/{bookId}/export/html:
+ *   get:
+ *     summary: Export a book to HTML format
+ *     tags: [Admin - Books]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: bookId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The book ID to export
+ *     responses:
+ *       200:
+ *         description: Book exported to HTML successfully
+ *         content:
+ *           text/html:
+ *             schema:
+ *               type: string
+ *       404:
+ *         description: Book not found
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin access required
+ */
+router.get('/books/:bookId/export/html',
+  authenticateToken,
+  requireRole(['admin']),
+  async (req, res): Promise<void> => {
+    try {
+      const { bookId } = req.params;
+
+      const { db } = await import('../config/database');
+      const { books, chapters, blocks } = await import('../models/schema');
+      const { eq } = await import('drizzle-orm');
+
+      // Получаем книгу
+      const [book] = await db
+        .select()
+        .from(books)
+        .where(eq(books.id, bookId))
+        .limit(1);
+
+      if (!book) {
+        res.status(404).json({
+          success: false,
+          error: {
+            code: 'BOOK_NOT_FOUND',
+            message: 'Book not found',
+          }
+        });
+        return;
+      }
+
+      // Получаем главы с блоками
+      const bookChapters = await db
+        .select()
+        .from(chapters)
+        .where(eq(chapters.bookId, bookId))
+        .orderBy(chapters.position);
+
+      // Начинаем HTML документ
+      let html = `<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${escapeHtml(book.title)}</title>
+    <style>
+        body {
+            font-family: 'Georgia', 'Times New Roman', serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            color: #333;
+            background: #fff;
+        }
+        h1 {
+            font-size: 2.5em;
+            text-align: center;
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+        .author {
+            text-align: center;
+            font-size: 1.2em;
+            color: #7f8c8d;
+            margin-bottom: 30px;
+        }
+        .description {
+            font-style: italic;
+            color: #555;
+            margin-bottom: 40px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-left: 4px solid #3498db;
+        }
+        .chapter {
+            page-break-before: always;
+            margin-top: 60px;
+        }
+        .chapter-title {
+            font-size: 2em;
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .chapter-description {
+            font-style: italic;
+            color: #666;
+            margin-bottom: 20px;
+        }
+        .block {
+            margin-bottom: 20px;
+        }
+        .heading {
+            font-weight: bold;
+            margin-top: 30px;
+            margin-bottom: 15px;
+        }
+        .heading-1 { font-size: 1.8em; color: #2c3e50; }
+        .heading-2 { font-size: 1.5em; color: #34495e; }
+        .heading-3 { font-size: 1.3em; color: #34495e; }
+        .paragraph {
+            text-align: justify;
+            margin-bottom: 15px;
+        }
+        .quote {
+            font-style: italic;
+            color: #666;
+            padding: 15px 30px;
+            border-left: 4px solid #e74c3c;
+            margin: 20px 0;
+            background: #fafafa;
+        }
+        .code {
+            font-family: 'Courier New', monospace;
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            padding: 15px;
+            overflow-x: auto;
+            margin: 20px 0;
+            font-size: 0.9em;
+        }
+        .list {
+            margin: 15px 0;
+            padding-left: 30px;
+        }
+        .list-item {
+            margin-bottom: 8px;
+        }
+        @media print {
+            body {
+                padding: 20px;
+            }
+            .chapter {
+                page-break-before: always;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>${escapeHtml(book.title)}</h1>
+`;
+
+      if (book.author) {
+        html += `    <div class="author">Автор: ${escapeHtml(book.author)}</div>\n`;
+      }
+
+      if (book.description) {
+        html += `    <div class="description">${escapeHtml(book.description)}</div>\n`;
+      }
+
+      // Добавляем главы
+      for (const chapter of bookChapters) {
+        // Получаем блоки главы
+        const chapterBlocks = await db
+          .select()
+          .from(blocks)
+          .where(eq(blocks.chapterId, chapter.id))
+          .orderBy(blocks.position);
+
+        html += `\n    <div class="chapter">
+        <h2 class="chapter-title">${escapeHtml(chapter.title)}</h2>\n`;
+
+        if (chapter.description) {
+          html += `        <div class="chapter-description">${escapeHtml(chapter.description)}</div>\n`;
+        }
+
+        // Добавляем блоки
+        for (const block of chapterBlocks) {
+          const content = block.content as any;
+
+          switch (block.type) {
+            case 'text':
+            case 'paragraph':
+              if (content.text) {
+                html += `        <div class="block paragraph">${escapeHtml(content.text)}</div>\n`;
+              }
+              break;
+
+            case 'heading':
+              if (content.text || content.content) {
+                const level = content.level || 1;
+                html += `        <div class="block heading heading-${level}">${escapeHtml(content.text || content.content)}</div>\n`;
+              }
+              break;
+
+            case 'list':
+              if (content.items && Array.isArray(content.items)) {
+                html += `        <ul class="list">\n`;
+                content.items.forEach((item: any) => {
+                  html += `            <li class="list-item">${escapeHtml(item)}</li>\n`;
+                });
+                html += `        </ul>\n`;
+              }
+              break;
+
+            case 'quote':
+              if (content.text || content.content) {
+                html += `        <blockquote class="quote">${escapeHtml(content.text || content.content)}</blockquote>\n`;
+              }
+              break;
+
+            case 'code':
+              if (content.code || content.content) {
+                html += `        <pre class="code">${escapeHtml(content.code || content.content)}</pre>\n`;
+              }
+              break;
+
+            default:
+              // Для неизвестных типов выводим как текст если есть
+              if (content.text || content.content) {
+                html += `        <div class="block">${escapeHtml(content.text || content.content)}</div>\n`;
+              }
+          }
+        }
+
+        html += `    </div>\n`;
+      }
+
+      html += `</body>
+</html>`;
+
+      // Устанавливаем заголовки и отправляем HTML
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename=${encodeURIComponent(book.title || 'book')}_${new Date().toISOString().split('T')[0]}.html`);
+      res.send(html);
+
+    } catch (error) {
+      console.error('Error exporting book to HTML:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to export book to HTML',
+        }
+      });
+    }
+  }
+);
+
+// Helper function to escape HTML
+function escapeHtml(text: string | null): string {
+  if (!text) return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 export default router;
