@@ -587,14 +587,14 @@ export class AuditService {
     // CSV заголовки
     const headers = [
       'ID',
-      'Date',
-      'User ID',
-      'Action',
-      'Entity Type',
-      'Entity ID',
-      'Description',
-      'IP Address',
-      'Changes Count',
+      'Дата',
+      'ID пользователя',
+      'Действие',
+      'Тип сущности',
+      'ID сущности',
+      'Описание',
+      'IP адрес',
+      'Кол-во изменений',
     ];
 
     // Формируем CSV строки
@@ -613,8 +613,8 @@ export class AuditService {
       ].join(',');
     });
 
-    // Собираем CSV
-    const csv = [headers.join(','), ...rows].join('\n');
+    // Собираем CSV с UTF-8 BOM для Excel
+    const csv = '\uFEFF' + [headers.join(','), ...rows].join('\n');
     return csv;
   }
 }
