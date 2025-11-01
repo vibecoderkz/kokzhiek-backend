@@ -15,6 +15,7 @@ const CreateKeySchema = z.object({
   description: z.string().optional(),
   maxUses: z.number().min(1).optional(),
   expiresAt: z.string().datetime().optional(),
+  keyPrefix: z.string().max(20).optional(),
 });
 
 const CreateBulkKeysSchema = z.object({
@@ -124,7 +125,7 @@ router.post('/registration-keys',
   validateRequest(CreateKeySchema),
   async (req, res): Promise<void> => {
     try {
-      const { role, description, maxUses, expiresAt } = req.body;
+      const { role, description, maxUses, expiresAt, keyPrefix } = req.body;
       const userId = (req as any).user.userId;
 
       const keyInfo = await RegistrationKeyService.createRegistrationKey({
@@ -132,6 +133,7 @@ router.post('/registration-keys',
         description,
         maxUses,
         expiresAt: expiresAt ? new Date(expiresAt) : undefined,
+        keyPrefix,
         createdBy: userId,
       });
 
