@@ -10,6 +10,7 @@ export interface CreateRegistrationKeyInput {
   maxUses?: number;
   expiresAt?: Date;
   keyCode?: string;
+  keyPrefix?: string;
   createdBy: string;
 }
 
@@ -29,7 +30,7 @@ export interface RegistrationKeyInfo {
 
 export class RegistrationKeyService {
   static async createRegistrationKey(input: CreateRegistrationKeyInput): Promise<RegistrationKeyInfo> {
-    const keyCode = input.keyCode || generateRegistrationKey();
+    const keyCode = input.keyCode || generateRegistrationKey(input.keyPrefix);
 
     const [key] = await db.insert(registrationKeys).values({
       keyCode,
@@ -39,6 +40,7 @@ export class RegistrationKeyService {
       currentUses: 0,
       expiresAt: input.expiresAt,
       isActive: true,
+      keyPrefix: input.keyPrefix,
       createdBy: input.createdBy,
     }).returning();
 
@@ -191,6 +193,7 @@ export class RegistrationKeyService {
         currentUses: 0,
         expiresAt: input.expiresAt,
         isActive: true,
+        keyPrefix: input.keyPrefix,
         createdBy: input.createdBy,
       });
     }

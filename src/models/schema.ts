@@ -13,6 +13,7 @@ export const registrationKeys = pgTable('registration_keys', {
   currentUses: integer('current_uses').default(0),
   expiresAt: timestamp('expires_at', { withTimezone: true }),
   isActive: boolean('is_active').default(true),
+  keyPrefix: varchar('key_prefix', { length: 20 }),
   createdBy: uuid('created_by').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),

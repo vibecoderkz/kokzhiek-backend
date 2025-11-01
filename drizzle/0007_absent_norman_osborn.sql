@@ -1,0 +1,1 @@
+ALTER TABLE "registration_keys" ADD COLUMN "key_prefix" varchar(20);
