@@ -1548,8 +1548,8 @@ router.get('/export',
         res.json(data);
       } else {
         // CSV format with Excel compatibility
-        // Use semicolon as delimiter for Excel on Mac/Windows locales
-        const delimiter = ';';
+        // Use tab as delimiter for Excel compatibility
+        const delimiter = '\t';
 
         // Russian translations for column headers
         const headerTranslations: Record<string, string> = {
@@ -1609,15 +1609,8 @@ router.get('/export',
                 else if (value === false) stringValue = 'Нет';
               }
 
-              // Check if value needs quoting (contains delimiter, quote, or newline)
-              if (stringValue.includes(delimiter) || stringValue.includes('"') || stringValue.includes('\n') || stringValue.includes('\r')) {
-                // Escape quotes by doubling them and escape newlines
-                stringValue = stringValue
-                  .replace(/"/g, '""')
-                  .replace(/\n/g, ' ')
-                  .replace(/\r/g, '');
-                return `"${stringValue}"`;
-              }
+              // For tab-delimited, escape tabs and newlines
+              stringValue = stringValue.replace(/\t/g, ' ').replace(/\n/g, ' ').replace(/\r/g, '');
 
               return stringValue;
             }).join(delimiter)
@@ -1625,11 +1618,7 @@ router.get('/export',
           return [csvHeaders, ...csvRows].join('\n');
         };
 
-        // Start with UTF-8 BOM for Excel compatibility
-        let csvContent = '\uFEFF';
-
-        // Add separator declaration for Excel
-        csvContent += `sep=${delimiter}\n`;
+        let csvContent = '';
 
         if (data.registrationKeys) {
           csvContent += 'КЛЮЧИ РЕГИСТРАЦИИ\n';
@@ -1648,9 +1637,18 @@ router.get('/export',
           csvContent += createCSV(data.users, ['id', 'email', 'firstName', 'lastName', 'role', 'schoolId', 'teacherId', 'emailVerified', 'createdAt']);
         }
 
-        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        // Create UTF-16LE BOM (0xFF, 0xFE)
+        const BOM = Buffer.from([0xFF, 0xFE]);
+
+        // Encode content as UTF-16LE
+        const contentBuffer = Buffer.from(csvContent, 'utf16le');
+
+        // Combine BOM + content
+        const finalBuffer = Buffer.concat([BOM, contentBuffer]);
+
+        res.setHeader('Content-Type', 'text/csv; charset=utf-16le');
         res.setHeader('Content-Disposition', `attachment; filename=kokzhiek_export_${new Date().toISOString().split('T')[0]}.csv`);
-        res.send(csvContent);
+        res.send(finalBuffer);
       }
     } catch (error) {
       console.error('Error exporting data:', error);

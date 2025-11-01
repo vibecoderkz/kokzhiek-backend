@@ -576,7 +576,7 @@ export class AuditService {
   /**
    * Экспортировать логи в CSV формат
    */
-  static async exportToCSV(filters: AuditLogFilters = {}): Promise<string> {
+  static async exportToCSV(filters: AuditLogFilters = {}): Promise<Buffer> {
     // Получаем все логи без пагинации
     const allLogs = await this.getAuditLogs({
       ...filters,
@@ -584,7 +584,8 @@ export class AuditService {
       page: 1,
     });
 
-    const delimiter = ';';
+    // Use tab as delimiter for Excel compatibility
+    const delimiter = '\t';
 
     // CSV заголовки
     const headers = [
@@ -605,10 +606,8 @@ export class AuditService {
 
       const escapeValue = (val: any) => {
         const stringVal = String(val);
-        if (stringVal.includes(delimiter) || stringVal.includes('"') || stringVal.includes('\n') || stringVal.includes('\r')) {
-          return `"${stringVal.replace(/"/g, '""').replace(/\n/g, ' ').replace(/\r/g, '')}"`;
-        }
-        return stringVal;
+        // For tab-delimited, escape tabs and newlines
+        return stringVal.replace(/\t/g, ' ').replace(/\n/g, ' ').replace(/\r/g, '');
       };
 
       return [
@@ -624,8 +623,16 @@ export class AuditService {
       ].join(delimiter);
     });
 
-    // Собираем CSV с UTF-8 BOM и sep= для Excel
-    const csv = '\uFEFF' + `sep=${delimiter}\n` + [headers.join(delimiter), ...rows].join('\n');
-    return csv;
+    // Собираем CSV контент
+    const csvContent = [headers.join(delimiter), ...rows].join('\n');
+
+    // Create UTF-16LE BOM (0xFF, 0xFE)
+    const BOM = Buffer.from([0xFF, 0xFE]);
+
+    // Encode content as UTF-16LE
+    const contentBuffer = Buffer.from(csvContent, 'utf16le');
+
+    // Combine BOM + content
+    return Buffer.concat([BOM, contentBuffer]);
   }
 }
