@@ -24,6 +24,7 @@ export interface RegistrationKeyInfo {
   expiresAt: Date | null;
   isActive: boolean | null;
   status: 'active' | 'expired' | 'exhausted' | 'inactive';
+  keyPrefix?: string | null;
 }
 
 export class RegistrationKeyService {
@@ -276,7 +277,8 @@ export class RegistrationKeyService {
       usesRemaining: usesRemaining === Infinity ? -1 : Math.max(0, usesRemaining),
       expiresAt: key.expiresAt,
       isActive: key.isActive,
-      status
+      status,
+      keyPrefix: key.keyPrefix
     };
   }
 }
