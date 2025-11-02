@@ -14,6 +14,8 @@ export const registrationKeys = pgTable('registration_keys', {
   expiresAt: timestamp('expires_at', { withTimezone: true }),
   isActive: boolean('is_active').default(true),
   keyPrefix: varchar('key_prefix', { length: 20 }),
+  schoolId: uuid('school_id'), // Для ключей teacher и student
+  teacherId: uuid('teacher_id'), // Для ключей student
   createdBy: uuid('created_by').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),

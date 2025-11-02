@@ -70,7 +70,8 @@ export class AuthService {
       lastName: input.lastName,
       role: keyInfo.role,
       registrationKeyId: keyInfo.id,
-      schoolId,
+      schoolId: keyInfo.schoolId || schoolId,
+      teacherId: keyInfo.teacherId,
       emailVerificationToken: verificationToken,
       emailVerified: false,
     }).returning();

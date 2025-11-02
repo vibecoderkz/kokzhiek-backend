@@ -57,6 +57,13 @@
       "when": 1762017285401,
       "tag": "0007_absent_norman_osborn",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1762089368419,
+      "tag": "0008_black_blade",
+      "breakpoints": true
     }
   ]
 }

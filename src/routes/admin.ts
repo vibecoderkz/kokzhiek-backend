@@ -16,6 +16,8 @@ const CreateKeySchema = z.object({
   maxUses: z.number().min(1).optional(),
   expiresAt: z.string().datetime().optional(),
   keyPrefix: z.string().max(20).optional(),
+  schoolId: z.string().uuid().optional(),
+  teacherId: z.string().uuid().optional(),
 });
 
 const CreateBulkKeysSchema = z.object({
@@ -25,6 +27,8 @@ const CreateBulkKeysSchema = z.object({
   maxUses: z.number().min(1).optional(),
   expiresAt: z.string().datetime().optional(),
   keyPrefix: z.string().optional(),
+  schoolId: z.string().uuid().optional(),
+  teacherId: z.string().uuid().optional(),
 });
 
 /**
@@ -125,7 +129,7 @@ router.post('/registration-keys',
   validateRequest(CreateKeySchema),
   async (req, res): Promise<void> => {
     try {
-      const { role, description, maxUses, expiresAt, keyPrefix } = req.body;
+      const { role, description, maxUses, expiresAt, keyPrefix, schoolId, teacherId } = req.body;
       const userId = (req as any).user.userId;
 
       const keyInfo = await RegistrationKeyService.createRegistrationKey({
@@ -134,6 +138,8 @@ router.post('/registration-keys',
         maxUses,
         expiresAt: expiresAt ? new Date(expiresAt) : undefined,
         keyPrefix,
+        schoolId,
+        teacherId,
         createdBy: userId,
       });
 
@@ -246,7 +252,7 @@ router.post('/registration-keys/bulk',
   validateRequest(CreateBulkKeysSchema),
   async (req, res): Promise<void> => {
     try {
-      const { role, count, description, maxUses, expiresAt, keyPrefix } = req.body;
+      const { role, count, description, maxUses, expiresAt, keyPrefix, schoolId, teacherId } = req.body;
       const userId = (req as any).user.userId;
 
       const keys = await RegistrationKeyService.createBulkRegistrationKeys({
@@ -256,6 +262,8 @@ router.post('/registration-keys/bulk',
         maxUses,
         expiresAt: expiresAt ? new Date(expiresAt) : undefined,
         keyPrefix,
+        schoolId,
+        teacherId,
         createdBy: userId,
       });
 
@@ -3284,5 +3292,85 @@ function escapeHtml(text: string | null): string {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 }
+
+/**
+ * @swagger
+ * /api/admin/schools:
+ *   get:
+ *     summary: Get list of all schools
+ *     tags: [Admin - Schools]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of schools
+ */
+router.get('/schools',
+  authenticateToken,
+  requireRole(['admin']),
+  async (req, res): Promise<void> => {
+    try {
+      const schools = await SchoolService.getAllSchools();
+
+      res.json({
+        success: true,
+        data: { schools }
+      });
+    } catch (error) {
+      console.error('Error fetching schools:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to fetch schools'
+        }
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /api/admin/teachers:
+ *   get:
+ *     summary: Get list of teachers, optionally filtered by school
+ *     tags: [Admin - Teachers]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: schoolId
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Filter teachers by school ID
+ *     responses:
+ *       200:
+ *         description: List of teachers
+ */
+router.get('/teachers',
+  authenticateToken,
+  requireRole(['admin']),
+  async (req, res): Promise<void> => {
+    try {
+      const { schoolId } = req.query;
+      const teachers = await SchoolService.getTeachers(schoolId as string | undefined);
+
+      res.json({
+        success: true,
+        data: { teachers }
+      });
+    } catch (error) {
+      console.error('Error fetching teachers:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to fetch teachers'
+        }
+      });
+    }
+  }
+);
 
 export default router;

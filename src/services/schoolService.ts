@@ -195,4 +195,37 @@ export class SchoolService {
       throw new Error('Failed to fetch school users');
     }
   }
+
+  static async getTeachers(schoolId?: string): Promise<Array<{
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    email: string;
+    schoolId: string | null;
+  }>> {
+    try {
+      const conditions = [eq(users.role, 'teacher'), eq(users.isActive, true)];
+
+      if (schoolId) {
+        conditions.push(eq(users.schoolId, schoolId));
+      }
+
+      const result = await db
+        .select({
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+          schoolId: users.schoolId,
+        })
+        .from(users)
+        .where(and(...conditions))
+        .orderBy(users.firstName, users.lastName);
+
+      return result;
+    } catch (error) {
+      console.error('Error fetching teachers:', error);
+      throw new Error('Failed to fetch teachers');
+    }
+  }
 }

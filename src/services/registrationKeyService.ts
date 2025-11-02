@@ -11,6 +11,8 @@ export interface CreateRegistrationKeyInput {
   expiresAt?: Date;
   keyCode?: string;
   keyPrefix?: string;
+  schoolId?: string;
+  teacherId?: string;
   createdBy: string;
 }
 
@@ -26,6 +28,8 @@ export interface RegistrationKeyInfo {
   isActive: boolean | null;
   status: 'active' | 'expired' | 'exhausted' | 'inactive';
   keyPrefix?: string | null;
+  schoolId?: string | null;
+  teacherId?: string | null;
 }
 
 export class RegistrationKeyService {
@@ -41,6 +45,8 @@ export class RegistrationKeyService {
       expiresAt: input.expiresAt,
       isActive: true,
       keyPrefix: input.keyPrefix,
+      schoolId: input.schoolId,
+      teacherId: input.teacherId,
       createdBy: input.createdBy,
     }).returning();
 
@@ -177,6 +183,8 @@ export class RegistrationKeyService {
     maxUses?: number;
     expiresAt?: Date;
     keyPrefix?: string;
+    schoolId?: string;
+    teacherId?: string;
     createdBy: string;
   }): Promise<string[]> {
     const keys: string[] = [];
@@ -194,6 +202,8 @@ export class RegistrationKeyService {
         expiresAt: input.expiresAt,
         isActive: true,
         keyPrefix: input.keyPrefix,
+        schoolId: input.schoolId,
+        teacherId: input.teacherId,
         createdBy: input.createdBy,
       });
     }
@@ -281,7 +291,9 @@ export class RegistrationKeyService {
       expiresAt: key.expiresAt,
       isActive: key.isActive,
       status,
-      keyPrefix: key.keyPrefix
+      keyPrefix: key.keyPrefix,
+      schoolId: key.schoolId,
+      teacherId: key.teacherId
     };
   }
 }
