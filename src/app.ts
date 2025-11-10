@@ -59,7 +59,7 @@ app.use(cors({
     }
   },
   credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token', 'X-Requested-With'],
 }));
 
 // SECURITY: Rate Limiting Configuration
