@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import path from 'path';
+import cookieParser from 'cookie-parser';
 
 import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
@@ -17,6 +18,7 @@ import searchRoutes from './routes/search';
 import auditRoutes from './routes/auditRoutes';
 import uploadRoutes from './routes/upload';
 import { errorHandler } from './middleware/errorHandler';
+import { csrfProtection } from './middleware/csrf';
 import { setupSwagger } from './config/swagger';
 import { setupAuditLogCleanup } from './jobs/auditLogCleanup';
 
@@ -57,6 +59,7 @@ app.use(cors({
     }
   },
   credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
 }));
 
 // SECURITY: Rate Limiting Configuration
@@ -79,6 +82,10 @@ app.use(limiter);
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+
+// Apply CSRF protection after parsing cookies
+app.use(csrfProtection);
 
 // Serve uploaded files statically
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
