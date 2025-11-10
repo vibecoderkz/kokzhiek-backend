@@ -88,6 +88,8 @@ export class AuthService {
       await this.emailService.sendWelcomeEmail(user.email, user.firstName!, verificationToken);
     } catch (error) {
       console.error('Failed to send welcome email:', error);
+      // !!! Временно выбрасываем ошибку, чтобы клиент получил ее
+      throw createError(500, 'EMAIL_SEND_FAILED', 'Failed to send welcome email. Please try again later.');
     }
 
     return {

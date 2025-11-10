@@ -19,6 +19,7 @@ import auditRoutes from './routes/auditRoutes';
 import uploadRoutes from './routes/upload';
 import { errorHandler } from './middleware/errorHandler';
 import { csrfProtection } from './middleware/csrf';
+import { generateCsrfToken } from './middleware/generateCsrfToken';
 import { setupSwagger } from './config/swagger';
 import { setupAuditLogCleanup } from './jobs/auditLogCleanup';
 
@@ -83,6 +84,9 @@ app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+// Generate CSRF token and set it in a cookie
+app.use(generateCsrfToken);
 
 // Apply CSRF protection after parsing cookies
 app.use(csrfProtection);
